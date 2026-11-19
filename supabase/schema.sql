@@ -24,6 +24,10 @@ create index if not exists things_user_created on public.things (user_id, create
 
 alter table public.things enable row level security;
 
+-- Newer Supabase projects don't grant table access automatically. Signed-in people
+-- need it; the policies below still limit each person to their own things.
+grant select, insert, update, delete on public.things to authenticated;
+
 -- You can only see and change your own things.
 -- (Public profiles in the next stage will add a read policy for is_public = true.)
 drop policy if exists "own things: read" on public.things;

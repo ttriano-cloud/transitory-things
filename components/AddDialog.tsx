@@ -145,7 +145,9 @@ export default function AddDialog({
         image_path,
       });
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : "Couldn't save. Try again.");
+      // Database errors arrive as plain objects with a message, not as Error.
+      const m = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : "";
+      setMsg(m ? `Couldn't save: ${m}` : "Couldn't save. Try again.");
       setBusy("");
     }
   }
