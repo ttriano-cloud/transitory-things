@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { frameStyle, type Thing } from "./Gallery";
+import { tidyDetails, type Details, type Facts } from "@/lib/details";
 
 type Photo =
   | { kind: "none" }
@@ -10,7 +11,14 @@ type Photo =
   | { kind: "remote"; url: string }
   | { kind: "file"; file: Blob; preview: string };
 
-export type Draft = Omit<Thing, "id" | "created_at" | "status" | "is_public"> & { id?: string };
+export type Draft = Omit<Thing, "id" | "created_at" | "status" | "is_public" | "position"> & { id?: string; status?: Thing["status"] };
+
+const STATUSES: { v: Thing["status"]; label: string }[] = [
+  { v: "want", label: "Wanting" },
+  { v: "bought", label: "Bought" },
+  { v: "gone", label: "Let go" },
+];
+const usd = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: n % 1 ? 2 : 0 }).format(n);
 
 const host = (u: string) => {
   try {
@@ -42,7 +50,7 @@ export default function AddDialog({
   onDelete,
 }: {
   thing?: Thing;
-  pre?: { url?: string; file?: File; html?: string };
+  pre?: { url?: string; file?: File; html?: string; facts?: Facts };
   boards: string[];
   defaultBoard: string;
   onClose: () => void;
@@ -57,6 +65,9 @@ export default function AddDialog({
   const [price, setPrice] = useState(thing?.price != null ? String(thing.price) : "");
   const [board, setBoard] = useState(thing?.board || defaultBoard);
   const [note, setNote] = useState(thing?.note || "");
+  const [brand, setBrand] = useState(thing?.brand || "");
+  const [details, setDetails] = useState<Details>(thing?.details || {});
+  const [status, setStatus] = useState<Thing["status"]>(thing?.status || "want");
   const [photo, setPhoto] = useState<Photo>(thing?.image_url ? { kind: "existing", url: thing.image_url, path: thing.image_path } : { kind: "none" });
   const [picks, setPicks] = useState<string[]>([]);
   const [busy, setBusy] = useState<"" | "import" | "save">("");
@@ -74,7 +85,7 @@ export default function AddDialog({
   useEffect(() => {
     ref.current?.showModal();
     if (pre?.file) takeFile(pre.file);
-    if (pre?.url) doImport(pre.url, pre.html);
+    if (pre?.url) doImport(pre.url, pre.html, pre.facts);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -83,19 +94,22 @@ export default function AddDialog({
     setPhoto({ kind: "file", file: f, preview: URL.createObjectURL(f) });
   }
 
-  async function doImport(link: string, html?: string) {
+  async function doImport(link: string, html?: string, facts?: Facts) {
     link = link.trim();
     if (!/^https?:\/\//i.test(link) || imported.current === link) return;
     imported.current = link;
     setBusy("import");
     setMsg("Reading the page…");
     try {
-      const r = await fetch("/api/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: link, html }) });
+      const r = await fetch("/api/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: link, html, facts }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Couldn't read that page.");
       setName((v) => v || d.name || "");
       setStore((v) => v || d.store || "");
       setPrice((v) => v || (d.price != null ? String(d.price) : ""));
+      setBrand((v) => v || d.brand || "");
+      // What you've typed wins over what the page says.
+      setDetails((v) => ({ ...(d.details || {}), ...Object.fromEntries(Object.entries(v).filter(([, x]) => x != null && x !== "")) }));
       setPicks(d.images || []);
       setPhoto((p) => (p.kind === "none" && d.images?.length ? { kind: "remote", url: d.images[0] } : p));
       setBlocked(!!d.blocked);
@@ -148,6 +162,9 @@ export default function AddDialog({
         currency: "USD",
         board: board.trim() || null,
         note: note.trim() || null,
+        brand: brand.trim() || null,
+        details: tidyDetails(details),
+        ...(thing ? { status } : {}),
         image_url,
         image_path,
         ...framed,
@@ -159,6 +176,15 @@ export default function AddDialog({
       setBusy("");
     }
   }
+
+  const facts = [
+    details.availability,
+    details.original_price ? `Was ${usd(details.original_price)}` : "",
+    details.sizes?.length ? `${details.sizes.length} sizes` : "",
+    details.colors?.length ? `${details.colors.length} colors` : "",
+    details.category,
+    details.sku ? `SKU ${details.sku}` : "",
+  ].filter(Boolean) as string[];
 
   const preview = photo.kind === "file" ? photo.preview : photo.kind === "none" ? "" : photo.url;
 
@@ -302,10 +328,28 @@ export default function AddDialog({
               <input inputMode="decimal" placeholder="0" value={price} onChange={(e) => setPrice(e.target.value)} />
             </label>
           </div>
-          <label>
-            Board
-            <input list="boardlist" placeholder="Home, Wear, Studio…" value={board} onChange={(e) => setBoard(e.target.value)} />
-          </label>
+          <div className="two">
+            <label>
+              Brand
+              <input value={brand} onChange={(e) => setBrand(e.target.value)} />
+            </label>
+            <label>
+              Board
+              <input list="boardlist" placeholder="Home, Wear, Studio…" value={board} onChange={(e) => setBoard(e.target.value)} />
+            </label>
+          </div>
+          <div className="two">
+            <label>
+              Color
+              <input list="colorlist" value={details.color || ""} onChange={(e) => setDetails((d) => ({ ...d, color: e.target.value }))} />
+            </label>
+            <label>
+              Size
+              <input list="sizelist" value={details.size || ""} onChange={(e) => setDetails((d) => ({ ...d, size: e.target.value }))} />
+            </label>
+          </div>
+          <datalist id="colorlist">{(details.colors || []).map((c) => <option key={c} value={c} />)}</datalist>
+          <datalist id="sizelist">{(details.sizes || []).map((c) => <option key={c} value={c} />)}</datalist>
           <datalist id="boardlist">
             {boards.map((b) => (
               <option key={b} value={b} />
@@ -313,8 +357,18 @@ export default function AddDialog({
           </datalist>
           <label>
             Note
-            <textarea placeholder="Size, color, why you want it" value={note} onChange={(e) => setNote(e.target.value)} />
+            <textarea placeholder="Why you want it" value={note} onChange={(e) => setNote(e.target.value)} />
           </label>
+          {thing && (
+            <div className="status" role="radiogroup" aria-label="Status">
+              {STATUSES.map(({ v, label }) => (
+                <button type="button" key={v} role="radio" aria-checked={status === v} onClick={() => setStatus(v)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          {facts.length > 0 && <p className="hint facts">{facts.join(" · ")}</p>}
           <div className="row">
             <button className="btn" disabled={busy !== ""}>{busy === "save" ? "Saving…" : "Save"}</button>
             <button className="btn ghost" type="button" onClick={() => ref.current?.close()}>

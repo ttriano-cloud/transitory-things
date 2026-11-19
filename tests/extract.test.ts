@@ -97,3 +97,33 @@ test("reads prices from product variants (sizes, colors)", () => {
   assert.equal(r.store, "Aesop");
   assert.equal(r.images[0], "https://cdn.aesop.com/bt13.png");
 });
+
+test("reads brand, color, sizes, availability, sale price, and category", () => {
+  const html = `<html><head>
+<meta property="og:site_name" content="Garden Heir">
+<script type="application/ld+json">[{"@type":"BreadcrumbList","itemListElement":[{"name":"Home"},{"name":"Shoes"},{"name":"Clogs"},{"name":"Clog Gardener"}]},
+{"@type":"Product","name":"Clog Gardener","brand":{"@type":"Brand","name":"Garden Heir"},"color":"Olive","sku":"GH-01","description":"<p>Hand-made clog.</p>",
+"offers":{"@type":"Offer","price":"78.00","priceCurrency":"USD","availability":"https://schema.org/InStock","priceSpecification":[{"@type":"UnitPriceSpecification","priceType":"https://schema.org/ListPrice","price":"98.00"}]},
+"hasVariant":[{"@type":"Product","size":"8"},{"@type":"Product","size":"9"},{"@type":"Product","size":"10"}]}]</script>
+</head><body></body></html>`;
+  const r = extractProduct(html, "https://gardenheir.com/products/clog");
+  assert.equal(r.price, 78);
+  assert.equal(r.brand, "Garden Heir");
+  assert.equal(r.details?.color, "Olive");
+  assert.equal(r.details?.sku, "GH-01");
+  assert.equal(r.details?.description, "Hand-made clog.");
+  assert.equal(r.details?.availability, "In stock");
+  assert.equal(r.details?.original_price, 98);
+  assert.deepEqual(r.details?.sizes, ["8", "9", "10"]);
+  assert.equal(r.details?.category, "Shoes / Clogs");
+});
+
+test("finds a crossed-out price and size menus on the page", () => {
+  const html = `<html><head><meta property="product:price:amount" content="120"></head><body>
+<h1>Linen Shirt</h1><span class="price"><s>$160.00</s> $120.00</span>
+<select name="options[Size]"><option value="">Choose a size</option><option value="s">S</option><option value="m">M</option><option value="l">L - Sold out</option></select>
+</body></html>`;
+  const r = extractProduct(html, "https://shop.example/p/linen");
+  assert.equal(r.details?.original_price, 160);
+  assert.deepEqual(r.details?.sizes, ["S", "M", "L"]);
+});

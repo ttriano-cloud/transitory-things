@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import type { Details } from "./details";
 
 export type Extracted = {
   name: string;
@@ -7,6 +8,8 @@ export type Extracted = {
   store: string;
   images: string[];
   url: string;
+  brand?: string;
+  details?: Details;
 };
 
 const JUNK = /(logo|icon|sprite|badge|payment|flag|avatar|placeholder|blank|pixel|spacer|tracking|loader|loading|favicon|rating|star|arrow|chevron|social|facebook|twitter|instagram|pinterest|klarna|afterpay|paypal|visa|mastercard)/i;
@@ -37,7 +40,7 @@ function largestFromSrcset(srcset: string | undefined): string | undefined {
 }
 
 // Two links to the same photo at different sizes should only show once.
-function photoKey(u: string): string {
+export function photoKey(u: string): string {
   try {
     const url = new URL(u);
     let p = url.pathname
@@ -246,7 +249,101 @@ export function extractProduct(html: string, pageUrl: string): Extracted {
     if (images.length >= 24) break;
   }
 
-  return { name: name.slice(0, 200), price, currency: currency ? String(currency).toUpperCase() : null, store: siteName || host, images, url: pageUrl };
+  const { brand, details } = extraDetails($, p, products, price);
+  return { name: name.slice(0, 200), price, currency: currency ? String(currency).toUpperCase() : null, store: siteName || host, images, url: pageUrl, brand, details };
+}
+
+const text = (v: unknown): string => {
+  if (typeof v === "string") return v.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+  if (v && typeof v === "object" && "name" in (v as any)) return text((v as any).name);
+  if (Array.isArray(v)) return text(v[0]);
+  return "";
+};
+
+const AVAIL: Record<string, string> = {
+  instock: "In stock", onlineonly: "In stock", limitedavailability: "Low stock", instoreonly: "In store only",
+  outofstock: "Sold out", soldout: "Sold out", discontinued: "Discontinued", preorder: "Preorder", presale: "Preorder", backorder: "Backorder",
+};
+
+// Brand, color, size, description, availability, sale price, SKU, and category.
+function extraDetails($: cheerio.CheerioAPI, p: any, products: any[], price: number | null): { brand?: string; details?: Details } {
+  const meta = (sel: string) => $(sel).attr("content")?.trim() || "";
+  const d: Details = {};
+
+  const brand = text(p.brand) || text(p.manufacturer) || meta('meta[property="product:brand"]') || meta('meta[property="og:brand"]') || $('[itemprop="brand"]').first().attr("content") || text($('[itemprop="brand"] [itemprop="name"]').first().text()) || "";
+
+  d.description = text(p.description) || meta('meta[property="og:description"]') || meta('meta[name="description"]') || undefined;
+  d.color = text(p.color) || meta('meta[property="product:color"]') || undefined;
+  d.size = text(p.size) || undefined;
+  d.sku = text(p.sku) || text(p.mpn) || $('[itemprop="sku"]').first().attr("content") || undefined;
+
+  // Availability and the price before a sale, from the offers.
+  for (const o of asArray(p?.offers)) {
+    for (const x of [o, ...asArray(o?.offers)]) {
+      const a = String(x?.availability || "").split("/").pop()?.toLowerCase().replace(/[^a-z]/g, "") || "";
+      if (!d.availability && AVAIL[a]) d.availability = AVAIL[a];
+      for (const spec of asArray(x?.priceSpecification)) {
+        if (/listprice|strikethrough|msrp/i.test(String(spec?.priceType || ""))) {
+          const was = num(spec.price);
+          if (was != null && (price == null || was > price)) d.original_price = was;
+        }
+      }
+    }
+  }
+  if (!d.availability) {
+    const a = ($('[itemprop="availability"]').first().attr("href") || $('[itemprop="availability"]').first().attr("content") || meta('meta[property="product:availability"]') || meta('meta[property="og:availability"]')).split("/").pop()?.toLowerCase().replace(/[^a-z]/g, "") || "";
+    if (AVAIL[a]) d.availability = AVAIL[a];
+  }
+  if (d.original_price == null && price != null) {
+    // A crossed-out or "compare at" price shown next to the real one.
+    $('del, s, strike, [class*="compare" i], [class*="was-price" i], [class*="original" i], [class*="regular" i], [class*="strike" i]').each((_, el) => {
+      if (d.original_price != null) return false;
+      const t = $(el).text().replace(/\s+/g, " ").trim();
+      if (!t || t.length > 40) return;
+      const m = moneyIn(t);
+      if (m && m.price > price && m.price < price * 10) d.original_price = m.price;
+    });
+  }
+
+  // Sizes and colors the shop offers, from its variants or option menus.
+  const sizes = new Set<string>(), colors = new Set<string>();
+  for (const v of products.flatMap((x) => [x, ...asArray(x?.hasVariant)])) {
+    if (text(v?.size)) sizes.add(text(v.size));
+    if (text(v?.color)) colors.add(text(v.color));
+  }
+  $("select").each((_, el) => {
+    const label = `${$(el).attr("name") || ""} ${$(el).attr("id") || ""} ${$(el).attr("aria-label") || ""} ${$(el).attr("data-option-name") || ""}`;
+    const into = /size|taille|größe/i.test(label) ? sizes : /colou?r|shade/i.test(label) ? colors : null;
+    if (!into) return;
+    $(el).find("option").each((_, o) => {
+      const t = $(o).text().replace(/\s+/g, " ").trim();
+      if (t && t.length < 30 && !/^(select|choose|pick)/i.test(t) && $(o).attr("value") !== "") into.add(t.replace(/\s*[-–]\s*(sold out|unavailable).*$/i, ""));
+    });
+  });
+  if (sizes.size > 1) d.sizes = [...sizes];
+  if (colors.size > 1) d.colors = [...colors];
+
+  // Category, from the breadcrumb trail.
+  const crumbs: string[] = [];
+  $('script[type="application/ld+json"]').each((_, el) => {
+    try {
+      const walk = (n: any): void => {
+        if (!n || typeof n !== "object") return;
+        if (Array.isArray(n)) return n.forEach(walk);
+        if (asArray(n["@type"]).some((t: any) => /breadcrumblist/i.test(String(t)))) {
+          for (const it of asArray(n.itemListElement)) crumbs.push(text(it?.name) || text(it?.item?.name));
+        }
+        if (n["@graph"]) walk(n["@graph"]);
+      };
+      walk(JSON.parse($(el).contents().text()));
+    } catch {}
+  });
+  const trail = crumbs.filter((c) => c && !/^home$/i.test(c));
+  if (trail.length > 1) d.category = trail.slice(0, -1).join(" / ");
+  else if (text(p.category)) d.category = text(p.category).split(/\s*>\s*/).join(" / ");
+
+  for (const k of Object.keys(d) as (keyof Details)[]) if (d[k] == null || d[k] === "") delete d[k];
+  return { brand: brand || undefined, details: Object.keys(d).length ? d : undefined };
 }
 
 // Guess a readable name from the link itself, used when the page can't be read.
