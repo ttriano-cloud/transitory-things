@@ -63,7 +63,7 @@ function findProducts(node: unknown, out: any[] = []): any[] {
   const type = asArray(o["@type"]).map(String);
   if (type.some((t) => /product/i.test(t))) out.push(o);
   if (o["@graph"]) findProducts(o["@graph"], out);
-  for (const k of ["mainEntity", "itemOffered"]) if (o[k]) findProducts(o[k], out);
+  for (const k of ["mainEntity", "itemOffered", "hasVariant"]) if (o[k]) findProducts(o[k], out);
   return out;
 }
 

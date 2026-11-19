@@ -88,3 +88,12 @@ test("recognizes bot checks", async () => {
   assert.equal(looksBlocked("<html><head><title>Access Denied</title></head></html>"), true);
   assert.equal(looksBlocked(`<html><head><title>Lamp</title></head><body><h1>Lamp</h1></body></html>`), false);
 });
+
+test("reads prices from product variants (sizes, colors)", () => {
+  const html = `<html><head><meta property="og:site_name" content="Aesop"><script type="application/ld+json">{"@type":"ProductGroup","name":"Resurrection Aromatique Hand Wash","hasVariant":[{"@type":"Product","name":"Resurrection Aromatique Hand Wash","image":"https://cdn.aesop.com/bt13.png","offers":{"@type":"Offer","price":49,"priceCurrency":"USD"}},{"@type":"Product","name":"Resurrection Aromatique Hand Wash Refill","offers":{"@type":"Offer","price":45,"priceCurrency":"USD"}}]}</script></head><body></body></html>`;
+  const r = extractProduct(html, "https://www.aesop.com/hand-wash/BT13.html");
+  assert.equal(r.name, "Resurrection Aromatique Hand Wash");
+  assert.equal(r.price, 49);
+  assert.equal(r.store, "Aesop");
+  assert.equal(r.images[0], "https://cdn.aesop.com/bt13.png");
+});
