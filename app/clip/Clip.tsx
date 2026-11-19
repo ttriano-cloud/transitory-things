@@ -23,6 +23,9 @@ export default function Clip() {
     let done = false;
     let boards: string[] = [];
     const fallbackUrl = params.get("u") || "";
+    // Opened by the Chrome extension (which hands the page over inside this window)
+    // or by the bookmark (which hands it over from the shop's window).
+    const fromExtension = params.get("ext") === "1";
 
     const finish = (url: string, html?: string) => {
       if (done) return;
@@ -37,12 +40,16 @@ export default function Clip() {
     const onMessage = (e: MessageEvent) => {
       const d = e.data;
       if (!d || d.tt !== "page" || typeof d.url !== "string" || typeof d.html !== "string") return;
-      if (e.source !== window.opener) return;
-      // The page copy must come from the shop it claims to be.
-      try {
-        if (new URL(d.url).origin !== e.origin) return;
-      } catch {
-        return;
+      if (fromExtension && d.ext === true) {
+        if (e.source !== window || e.origin !== location.origin) return;
+      } else {
+        if (e.source !== window.opener) return;
+        // The page copy must come from the shop it claims to be.
+        try {
+          if (new URL(d.url).origin !== e.origin) return;
+        } catch {
+          return;
+        }
       }
       finish(d.url, d.html);
     };
@@ -50,7 +57,8 @@ export default function Clip() {
     // Tell the shop's page we're ready, a few times in case it's slow.
     const hello = () => {
       try {
-        window.opener?.postMessage({ tt: "ready" }, "*");
+        if (fromExtension) window.postMessage({ tt: "ready" }, location.origin);
+        else window.opener?.postMessage({ tt: "ready" }, "*");
       } catch {}
     };
     let ping: ReturnType<typeof setInterval> | undefined;
@@ -65,7 +73,7 @@ export default function Clip() {
       hello();
       ping = setInterval(hello, 250);
       // Some shops cut the link to this window; then read the page the usual way.
-      giveUp = setTimeout(() => finish(fallbackUrl), 2500);
+      giveUp = setTimeout(() => finish(fallbackUrl), fromExtension ? 6000 : 2500);
     })();
 
     return () => {

@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Transitory Things",
+  "version": "1.0.0",
+  "description": "Save the thing you're looking at to Transitory Things, with its name, price, and photos.",
+  "action": {
+    "default_title": "Save to Transitory Things",
+    "default_icon": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" }
+  },
+  "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "background": { "service_worker": "background.js" },
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["https://transitorythings.com/*"],
+  "commands": {
+    "_execute_action": {
+      "suggested_key": { "default": "Alt+Shift+S", "mac": "Alt+Shift+S" },
+      "description": "Save this page to Transitory Things"
+    }
+  }
+}
