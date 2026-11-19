@@ -52,7 +52,7 @@ select option { background: var(--bg); color: var(--ink); }
 .card.dim .plate > * { opacity: .5; }
 .l-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: var(--pad); }
 .l-grid .plate { aspect-ratio: 4 / 5; }
-.l-grid .plate img { width: 100%; height: 100%; object-fit: cover; }
+.l-grid .plate img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .l-scatter { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: clamp(16px, 3vw, 48px); row-gap: clamp(40px, 6vw, 96px); align-items: start; padding-block: 24px 120px; padding-inline: clamp(0px, 7vw, 130px); }
 .l-scatter .plate { display: block; background: none; }
 .l-scatter .plate img { width: 100%; height: auto; }
@@ -194,9 +194,3 @@ html.bg-on .head, html.bg-on .note, html.bg-on .where { text-shadow: 0 0 12px va
 .frame-tools .lk:hover, .frame-tools .lk:focus-visible { color: #f4f4f4; }
 @media (max-width: 700px) { .drop.framed { width: min(100%, 48vh); margin: 0 auto; } }
 .clip .drop.framed { width: min(100%, 44vh); margin: 0 auto; }
-/* a recropped photo keeps its crop in every layout and in the single-thing view */
-.l-scatter .plate.framed, .l-lib .plate.framed { aspect-ratio: 4 / 5; overflow: hidden; background: var(--plate); }
-.l-lib .plate.framed { height: 340px; width: auto; }
-.fimg.framed { overflow: hidden; }
-.plate.framed img, .fimg.framed img { width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: var(--fx, 50%) var(--fy, 50%); transform: scale(var(--fz, 1)); transform-origin: var(--fx, 50%) var(--fy, 50%); }
-@media (max-width: 700px) { .l-lib .plate.framed { height: 280px; } }

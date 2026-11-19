@@ -39,10 +39,7 @@ const hsh = (t: string, n: number) => {
   h ^= h >>> 15;
   return (h >>> 0) / 4294967295;
 };
-// Whether someone recropped this photo (moved it off center or zoomed in).
-export const isFramed = (x: { image_x?: number | null; image_y?: number | null; image_zoom?: number | null }) =>
-  Math.abs((x.image_x ?? 50) - 50) > 0.5 || Math.abs((x.image_y ?? 50) - 50) > 0.5 || (x.image_zoom ?? 1) > 1.005;
-// Applies the framing chosen when adding. Recropped photos keep that crop in every view.
+// The grid crops photos to fit its tiles; this applies the framing chosen when adding.
 export const frameStyle = (x: { image_x?: number | null; image_y?: number | null; image_zoom?: number | null }) =>
   ({ "--fx": `${x.image_x ?? 50}%`, "--fy": `${x.image_y ?? 50}%`, "--fz": x.image_zoom ?? 1 }) as React.CSSProperties;
 const meta = (x: Thing) => [money(x.price), x.store, x.board].filter(Boolean).join(" · ");
@@ -283,7 +280,7 @@ export default function Gallery({ initial, email }: { initial: Thing[]; email: s
     const sel = open === x.id ? " sel" : "";
     const plate = (
       <div className="pw">
-        <button className={`plate${isFramed(x) ? " framed" : ""}`} aria-label={x.name} onClick={() => onPlateClick(x.id)} onDoubleClick={() => onPlateDouble(x.id)}>
+        <button className="plate" aria-label={x.name} onClick={() => onPlateClick(x.id)} onDoubleClick={() => onPlateDouble(x.id)}>
           {pic(x)}
         </button>
         {open === x.id && (
@@ -370,7 +367,7 @@ export default function Gallery({ initial, email }: { initial: Thing[]; email: s
       {f && (
         <section className="band focus">
           <button className="lk" onClick={unfocus} style={{ fontSize: 14, marginBottom: 12 }}>← All things</button>
-          <div className={`fimg${isFramed(f) ? " framed" : ""}`}>{f.image_url ? <img src={f.image_url} alt="" style={frameStyle(f)} /> : <span className="noimg">{f.name}</span>}</div>
+          <div className="fimg">{f.image_url ? <img src={f.image_url} alt="" /> : <span className="noimg">{f.name}</span>}</div>
           <h2>{f.name}</h2>
           <div className="dmeta">{meta(f)}</div>
           {f.note && <p className="dnote">{f.note}</p>}
