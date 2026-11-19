@@ -207,3 +207,114 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.handle_things(text) from public;
 grant execute on function public.handle_things(text) to anon, authenticated;
+
+-- Social: who first found a thing, a community of everything on public name pages,
+-- and saving someone else's thing to your own list.
+alter table public.things add column if not exists found_by uuid references auth.users(id) on delete set null;
+
+-- What other people see of a thing now also says whose it is and who first found it.
+drop function if exists public.community_things(int);
+drop function if exists public.shared_things(text);
+drop function if exists public.handle_things(text);
+drop function if exists public.public_things(uuid);
+create function public.public_things(owner uuid)
+returns table (
+  id uuid, name text, url text, store text, price numeric, currency text, board text,
+  image_url text, image_x real, image_y real, image_zoom real, status text,
+  created_at timestamptz, "position" double precision, brand text, details jsonb,
+  owner_handle text, found_by_handle text
+)
+language sql stable security definer set search_path = public as $$
+  select t.id, t.name, t.url, t.store, t.price, t.currency, t.board,
+         t.image_url, t.image_x, t.image_y, t.image_zoom, t.status,
+         t.created_at, t.position, t.brand, t.details,
+         (select f.handle from profiles f where f.user_id = t.user_id),
+         (select f.handle from profiles f where f.user_id = t.found_by)
+  from things t
+  where t.user_id = owner
+  order by t.position nulls last, t.created_at desc
+$$;
+revoke all on function public.public_things(uuid) from public, anon, authenticated;
+
+create function public.shared_things(share_token text)
+returns table (
+  id uuid, name text, url text, store text, price numeric, currency text, board text,
+  image_url text, image_x real, image_y real, image_zoom real, status text,
+  created_at timestamptz, "position" double precision, brand text, details jsonb,
+  owner_handle text, found_by_handle text
+)
+language sql stable security definer set search_path = public as $$
+  select p.* from shares s, public_things(s.user_id) p where s.token = share_token
+$$;
+revoke all on function public.shared_things(text) from public;
+grant execute on function public.shared_things(text) to anon, authenticated;
+
+create function public.handle_things(page_handle text)
+returns table (
+  id uuid, name text, url text, store text, price numeric, currency text, board text,
+  image_url text, image_x real, image_y real, image_zoom real, status text,
+  created_at timestamptz, "position" double precision, brand text, details jsonb,
+  owner_handle text, found_by_handle text
+)
+language sql stable security definer set search_path = public as $$
+  select p.* from profiles f, public_things(f.user_id) p where f.handle = lower(page_handle)
+$$;
+revoke all on function public.handle_things(text) from public;
+grant execute on function public.handle_things(text) to anon, authenticated;
+
+-- Community: the newest things from everyone with a public name page.
+-- Things kept only privately (no name page) never show here.
+create function public.community_things(lim int default 300)
+returns table (
+  id uuid, name text, url text, store text, price numeric, currency text, board text,
+  image_url text, image_x real, image_y real, image_zoom real, status text,
+  created_at timestamptz, "position" double precision, brand text, details jsonb,
+  owner_handle text, found_by_handle text
+)
+language sql stable security definer set search_path = public as $$
+  select p.* from profiles f cross join lateral public_things(f.user_id) p
+  order by p.created_at desc
+  limit least(greatest(lim, 1), 1000)
+$$;
+revoke all on function public.community_things(int) from public, anon;
+grant execute on function public.community_things(int) to authenticated;
+
+-- Names for the people who found things you saved. Names are public (they're page addresses).
+drop function if exists public.handles_of(uuid[]);
+create function public.handles_of(ids uuid[]) returns table (user_id uuid, handle text)
+language sql stable security definer set search_path = public as $$
+  select f.user_id, f.handle from profiles f where f.user_id = any(ids)
+$$;
+revoke all on function public.handles_of(uuid[]) from public, anon;
+grant execute on function public.handles_of(uuid[]) to authenticated;
+
+-- Save someone else's thing to your own list, keeping who first found it.
+-- Only things you could already see: on a name page or behind a share link.
+drop function if exists public.save_copy(uuid);
+create function public.save_copy(src uuid) returns uuid
+language plpgsql volatile security definer set search_path = public as $$
+declare me uuid := auth.uid(); s things; nid uuid;
+begin
+  if me is null then raise exception 'Please sign in.'; end if;
+  select t.* into s from things t where t.id = src
+    and (exists (select 1 from profiles f where f.user_id = t.user_id) or exists (select 1 from shares x where x.user_id = t.user_id));
+  if not found then raise exception 'That thing isn''t available.'; end if;
+  insert into things (user_id, name, url, store, price, currency, image_url, image_x, image_y, image_zoom, brand, details, found_by)
+  values (me, s.name, s.url, s.store, s.price, s.currency, s.image_url, s.image_x, s.image_y, s.image_zoom, s.brand, s.details,
+          case when s.user_id = me then s.found_by else coalesce(s.found_by, s.user_id) end)
+  returning id into nid;
+  return nid;
+end $$;
+revoke all on function public.save_copy(uuid) from public, anon;
+grant execute on function public.save_copy(uuid) to authenticated;
+
+-- The title at the top of someone's page, set in Settings.
+drop function if exists public.handle_title(text);
+create function public.handle_title(page_handle text) returns text
+language sql stable security definer set search_path = public as $$
+  select nullif(trim(u.raw_user_meta_data->>'page_title'), '')
+  from profiles f join auth.users u on u.id = f.user_id
+  where f.handle = lower(page_handle)
+$$;
+revoke all on function public.handle_title(text) from public;
+grant execute on function public.handle_title(text) to anon, authenticated;

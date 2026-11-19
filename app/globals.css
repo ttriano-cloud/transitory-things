@@ -36,7 +36,9 @@ a { color: inherit; }
 .chip[aria-pressed="true"]::after, .tabs button[aria-pressed="true"]::after { content: " )"; }
 .owner { margin: 0; text-align: center; white-space: nowrap; }
 .owner span { color: var(--mute); }
-.tabs .meta { display: inline-flex; align-items: center; gap: 8px; padding: 6px 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dockleft { display: grid; gap: 0; }
+.dock .meta { display: flex; gap: 8px; font-size: 10.5px; line-height: 1.2; color: var(--mute); text-transform: uppercase; letter-spacing: .03em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dock .meta .sum { opacity: .75; }
 .sum { color: var(--mute); }
 .tools { display: flex; justify-content: flex-end; align-items: center; gap: 18px; }
 .search { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); height: 34px; flex: 0 1 170px; }
@@ -287,3 +289,12 @@ dialog.share .row.small .lk { font-size: 13px; }
 .page dd.opts { display: flex; flex-wrap: wrap; gap: 4px 16px; }
 .page .opts .chip { padding: 0; }
 html.bg-on .page { text-shadow: 0 0 12px var(--bg), 0 0 4px var(--bg); }
+
+/* who found a thing, and whose list it's on */
+.credit { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 14px; margin-top: 12px; font-size: 13px; color: var(--mute); }
+.credit .lk { font-size: 13px; color: var(--ink); }
+.lk:disabled { cursor: default; text-decoration: none; }
+.titlefield { display: flex; align-items: center; gap: 12px; }
+.titlefield input { flex: 1; min-width: 0; height: 30px; border: 0; border-bottom: 1px solid var(--line); background: none; outline: 0; font-size: 14px; }
+.titlefield input:focus { border-color: var(--ink); }
+.titlefield .hint { font-size: 12px; color: var(--mute); }

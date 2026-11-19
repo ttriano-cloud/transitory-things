@@ -76,7 +76,9 @@ Then run the latest `supabase/schema.sql` in Supabase (step 2.3) if you haven't 
 - **Hover** a photo to see its name, price, and brand underneath. **Click** opens it by itself.
 - **Arrange your grid:** drag a photo to a new spot (on a phone, press and hold first; with a keyboard, Alt + arrow keys). Order is set to **Your order**; choosing Newest or a price order and then dragging makes that the starting point of your order.
 - **Bought or let go:** open **Edit** and choose Wanting, Bought, or Let go.
-- **Bottom bar:** All, Wanting, Bought, Let go, Add +, the backgrounds (BG steps through Water, Fog, Contour, Dusk, Light leak, Bokeh, and off; Shift+click goes back), and the three layouts (the dots).
+- **Bottom bar:** All, Wanting, Bought, Let go, Add +, Share, with the count and total in small type underneath, and the three layouts (the dots).
+- **Settings** (the dot mark): Light, Dark, or Auto mode; the moving background (Water, Fog, Contour, Dusk, Light leak, Bokeh, or off); the title at the top of your page; and the save button.
+- **Community** (the dot mark): everything people keep on their public name pages, newest first. Things kept only privately never show there. **Save +** copies a thing to your own list, and its page says who first found it and whose list it's on.
 - **Chrome extension:** see `/save-button` on the site. It reads the page in your own browser and also brings the brand, the color and size you picked, sale price, stock, and the photo you were looking at. Its code is in `extension/`; after changing it, rebuild `public/transitory-things-extension.zip` with `cd extension && zip -qr -X ../public/transitory-things-extension.zip . -x '.*'`.
 - **Boards:** type any name in the Board field. It shows up in the top row.
 - **Share:** click **Share** in the bottom bar. Two ways, both look-only, and your notes stay private:

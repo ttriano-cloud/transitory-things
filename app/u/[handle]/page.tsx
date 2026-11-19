@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Gallery, { type Thing } from "@/components/Gallery";
 import { HANDLE_RE, HOME_URL } from "@/lib/site";
+import { titleFor } from "@/lib/theme";
 
 export const dynamic = "force-dynamic";
 
@@ -18,8 +19,11 @@ export default async function NamePage({ params, searchParams }: { params: Promi
   const h = handle.toLowerCase();
   if (!HANDLE_RE.test(h)) notFound();
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("handle_things", { page_handle: h });
+  const [{ data, error }, { data: custom }] = await Promise.all([
+    supabase.rpc("handle_things", { page_handle: h }),
+    supabase.rpc("handle_title", { page_handle: h }),
+  ]);
   if (error || !data?.length) notFound();
   const items = (data as Omit<Thing, "note" | "image_path" | "is_public">[]).map((x) => ({ ...x, note: null, image_path: null, is_public: true }) as Thing);
-  return <Gallery initial={items} shared owner={h} home={HOME_URL} initialBoard={typeof board === "string" ? board : undefined} />;
+  return <Gallery initial={items} shared owner={h} ownerHandle={h} title={titleFor(custom, h)} home={HOME_URL} initialBoard={typeof board === "string" ? board : undefined} />;
 }

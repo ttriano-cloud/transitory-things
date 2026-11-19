@@ -8,6 +8,7 @@ import AddDialog, { type Draft } from "./AddDialog";
 import Backdrop, { BACKDROPS, type BgMode } from "./Backdrop";
 import ShareDialog from "./ShareDialog";
 import DotMenu from "./DotMenu";
+import { HOME_URL, pageUrl } from "@/lib/site";
 
 export type Thing = {
   id: string;
@@ -31,6 +32,10 @@ export type Thing = {
   position?: number | null;
   brand?: string | null;
   details?: Details | null;
+  // Whose list it's on, and who first found it (when saved from someone else).
+  owner_handle?: string | null;
+  found_by?: string | null;
+  found_by_handle?: string | null;
 };
 type Tab = "all" | Thing["status"];
 type View = "grid" | "scatter" | "lib";
@@ -82,14 +87,28 @@ const VIEWS: { v: View; label: string; dots: number[] }[] = [
   { v: "lib", label: "Single column", dots: [1, 1, 1, 0, 1, 1] },
 ];
 
-// shared: someone else's things, seen through their share link. Look, don't touch.
-export default function Gallery({ initial, email = "", shared = false, owner, home = "/", initialBoard }: { initial: Thing[]; email?: string; shared?: boolean; owner?: string; home?: string; initialBoard?: string }) {
+// shared: someone else's things, seen through their share link or name page. Look, don't touch.
+// community: everyone's public things together. Signed-in people can save any of them.
+type Props = {
+  initial: Thing[];
+  email?: string;
+  shared?: boolean;
+  community?: boolean;
+  owner?: string;
+  ownerHandle?: string;
+  viewerHandle?: string;
+  signedIn?: boolean;
+  title?: string;
+  home?: string;
+  initialBoard?: string;
+};
+export default function Gallery({ initial, email = "", shared = false, community = false, owner, ownerHandle, viewerHandle, signedIn = false, title, home = "/", initialBoard }: Props) {
   const sb = useMemo(() => createClient(), []);
   const [items, setItems] = useState<Thing[]>(initial);
-  const [tab, setTab] = useState<Tab>("want");
+  const [tab, setTab] = useState<Tab>(community ? "all" : "want");
   const [board, setBoard] = useState(initialBoard || "All");
   const [q, setQ] = useState("");
-  const [sort, setSortState] = useState<Sort>("mine");
+  const [sort, setSortState] = useState<Sort>(community ? "new" : "mine");
   const [view, setViewState] = useState<View>("grid");
   const [bg, setBgState] = useState<BgMode>("water");
   const [focus, setFocus] = useState<string | null>(null);
@@ -106,7 +125,7 @@ export default function Gallery({ initial, email = "", shared = false, owner, ho
       const v = localStorage.getItem("tt-view") as View | null;
       if (v && ["grid", "scatter", "lib"].includes(v)) setViewState(v);
       // A shared board opens in its owner's order.
-      const s = shared ? null : (localStorage.getItem("tt-sort") as Sort | null);
+      const s = shared || community ? null : (localStorage.getItem("tt-sort") as Sort | null);
       if (s && SORTS.includes(s)) setSortState(s);
       const b = localStorage.getItem("tt-bg-mode") as BgMode | null;
       if (b && BACKDROPS.some((x) => x.mode === b)) setBgState(b);
@@ -128,6 +147,39 @@ export default function Gallery({ initial, email = "", shared = false, owner, ho
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), undo ? 6000 : 3500);
   }, []);
+
+  // On someone else's page: are you signed in here, so you can save their things?
+  const [viewer, setViewer] = useState(signedIn);
+  useEffect(() => {
+    if (!shared || signedIn) return;
+    sb.auth.getSession().then(({ data }) => setViewer(!!data.session));
+  }, [sb, shared, signedIn]);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const mine = (x: Thing) => !shared || (!!viewerHandle && x.owner_handle === viewerHandle);
+
+  // Save + : copies someone's thing into your own list, crediting who found it.
+  async function saveCopy(x: Thing) {
+    if (!viewer) return void (location.href = `${HOME_URL}/login`);
+    setSavedIds((s) => new Set(s).add(x.id));
+    const { data: id, error } = await sb.rpc("save_copy", { src: x.id });
+    if (error || !id) {
+      setSavedIds((s) => { const n = new Set(s); n.delete(x.id); return n; });
+      return say(error?.message?.includes("function") ? "Saving needs the latest database update (supabase/schema.sql)." : "Couldn't save that.");
+    }
+    say("Saved to your things.");
+    // Keep your own copy of the photo, so it stays if they delete theirs.
+    const marker = "/storage/v1/object/public/things/";
+    if (x.image_url?.includes(marker)) {
+      try {
+        const { data: { user } } = await sb.auth.getUser();
+        const blob = await (await fetch(x.image_url)).blob();
+        const ext = (blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+        const path = `${user!.id}/${crypto.randomUUID()}.${ext}`;
+        const up = await sb.storage.from("things").upload(path, blob, { contentType: blob.type || "image/jpeg" });
+        if (!up.error) await sb.from("things").update({ image_url: sb.storage.from("things").getPublicUrl(path).data.publicUrl, image_path: path }).eq("id", id);
+      } catch {}
+    }
+  }
 
   // A thing opened by itself lives in the address (#id), so Back works.
   useEffect(() => {
@@ -435,7 +487,25 @@ export default function Gallery({ initial, email = "", shared = false, owner, ho
       <>
         {u && <a className="lk" href={u} target="_blank" rel="noopener noreferrer">Visit store ↗</a>}
         {!shared && <button className="lk" onClick={() => setEditing({ thing: x })}>Edit</button>}
+        {shared && !mine(x) && (
+          <button className="lk" onClick={() => saveCopy(x)} disabled={savedIds.has(x.id)}>{savedIds.has(x.id) ? "Saved" : "Save +"}</button>
+        )}
       </>
+    );
+  };
+
+  // "Found by trevor · On sam's list", each name linking to that person's page.
+  const person = (h: string | null | undefined) =>
+    h ? <a className="lk" href={pageUrl(h)}>{h}</a> : <>you</>;
+  const credit = (x: Thing) => {
+    const keeper = x.owner_handle ?? ownerHandle ?? null;
+    // Who first found it: the person it was saved from, or else whoever keeps it.
+    const finder = x.found_by_handle ?? (x.found_by ? undefined : keeper);
+    return (
+      <div className="credit">
+        {finder !== undefined && <span>Found by {person(finder)}</span>}
+        {finder !== keeper && <span>On {keeper ? <>{person(keeper)}’s</> : "your"} list</span>}
+      </div>
     );
   };
 
@@ -491,7 +561,7 @@ export default function Gallery({ initial, email = "", shared = false, owner, ho
             {x.price != null && <span className="pr">{money(x.price)}</span>}
           </div>
           <div className="capline sub">
-            <span>{x.brand || x.store || ""}</span>
+            <span>{community && x.owner_handle ? x.owner_handle : x.brand || x.store || ""}</span>
             <span className="capacts">{links(x)}</span>
           </div>
         </div>
@@ -508,8 +578,9 @@ export default function Gallery({ initial, email = "", shared = false, owner, ho
     gone: "Things you let go of will rest here. Most wants pass.",
   }[tab];
   const emptyShared = { all: "Nothing here yet.", want: "Nothing here yet.", bought: "Nothing bought yet.", gone: "Nothing let go yet." }[tab];
-  // Whose things these are, shown at the top: "Trevor's Things".
-  const who = owner ? owner.charAt(0).toUpperCase() + owner.slice(1) : "";
+  // The title at the top, with its last word quieter, like the wordmark: "Trevor's Things".
+  const heading = (title || (owner ? `${owner.charAt(0).toUpperCase()}${owner.slice(1)}’s Things` : "Shared Things")).trim();
+  const cut = heading.lastIndexOf(" ");
 
   return (
     <>
@@ -525,7 +596,7 @@ export default function Gallery({ initial, email = "", shared = false, owner, ho
             ))}
           </div>
           <h1 className="owner up">
-            {who ? <>{who}’s <span>Things</span></> : <>Shared <span>Things</span></>}
+            {cut > 0 ? <>{heading.slice(0, cut)} <span>{heading.slice(cut + 1)}</span></> : heading}
           </h1>
           <div className="tools">
             <label className="search">
@@ -555,6 +626,7 @@ export default function Gallery({ initial, email = "", shared = false, owner, ho
           {(fd.color || fd.size || fd.availability) && <div className="dmeta">{[fd.color, fd.size && `Size ${fd.size}`, fd.availability].filter(Boolean).join(" · ")}</div>}
           {f.note && <p className="dnote">{f.note}</p>}
           {fd.description && <p className="dnote ddesc">{fd.description}</p>}
+          {credit(f)}
           <div className="dacts">{links(f)}</div>
         </section>
       )}
@@ -563,7 +635,11 @@ export default function Gallery({ initial, email = "", shared = false, owner, ho
         <div key={view} ref={gridRef} className={`grid l-${view}${drag ? " moving" : ""}`}>
           {shown.length ? shown.map(card) : <div className="empty">{q ? "No things match that search." : shared ? emptyShared : empty}</div>}
         </div>
-        {shared ? (
+        {community ? (
+          <div className="where">
+            <span>Everything people keep on their public pages. Save any of it to your own.</span>
+          </div>
+        ) : shared ? (
           <div className="where">
             <span>{owner ? `${owner}’s things` : "Shared things"}, kept on Transitory Things</span>
             <a className="lk" style={{ fontSize: 12 }} href={home}>Keep your own</a>
@@ -579,6 +655,7 @@ export default function Gallery({ initial, email = "", shared = false, owner, ho
       </main>
 
       <nav className="dock band" aria-label="Main">
+        <div className="dockleft">
         <div className="tabs up">
           {(["all", "want", "bought", "gone"] as Tab[]).map((t) => (
             <button key={t} aria-pressed={tab === t} onClick={() => setTab(t)}>
@@ -586,16 +663,17 @@ export default function Gallery({ initial, email = "", shared = false, owner, ho
               <sup>{counts[t] || ""}</sup>
             </button>
           ))}
-          <span className="meta" aria-live="polite">
-            <span>{inTab.length} {inTab.length === 1 ? "thing" : "things"}</span>
-            <span className="sum"><CountUp value={total} /></span>
-          </span>
           {!shared && (
             <>
               <button className="soft" onClick={() => setEditing({})}>Add +</button>
               <button className="soft" onClick={() => setSharing(true)} title="Get a link to share your things">Share</button>
             </>
           )}
+        </div>
+        <div className="meta" aria-live="polite">
+          <span>{inTab.length} {inTab.length === 1 ? "thing" : "things"}</span>
+          <span className="sum"><CountUp value={total} /></span>
+        </div>
         </div>
         <div className="views" role="group" aria-label="Layout">
           {VIEWS.map(({ v, label, dots }) => (
@@ -605,10 +683,10 @@ export default function Gallery({ initial, email = "", shared = false, owner, ho
           ))}
         </div>
         <div className="brandrow">
-          <a className="brand up" href="/" onClick={(e) => { if (focus || shared) { e.preventDefault(); if (focus) unfocus(); else window.scrollTo({ top: 0, behavior: "smooth" }); } }}>
+          <a className="brand up" href="/" onClick={(e) => { if (focus || (shared && !community)) { e.preventDefault(); if (focus) unfocus(); else window.scrollTo({ top: 0, behavior: "smooth" }); } }}>
             Transitory <span>Things</span>
           </a>
-          {!shared && <DotMenu />}
+          {(!shared || community) && <DotMenu />}
         </div>
       </nav>
 

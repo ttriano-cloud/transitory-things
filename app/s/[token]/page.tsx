@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Gallery, { type Thing } from "@/components/Gallery";
 import { HOME_URL } from "@/lib/site";
+import { titleFor } from "@/lib/theme";
 
 export const dynamic = "force-dynamic";
 
@@ -21,5 +22,6 @@ export default async function Shared({ params, searchParams }: { params: Promise
   const { data, error } = await supabase.rpc("shared_things", { share_token: token });
   if (error || !data?.length) notFound();
   const items = (data as Omit<Thing, "note" | "image_path" | "is_public">[]).map((x) => ({ ...x, note: null, image_path: null, is_public: true }) as Thing);
-  return <Gallery initial={items} shared home={HOME_URL} initialBoard={typeof board === "string" ? board : undefined} />;
+  const h = items[0]?.owner_handle || undefined;
+  return <Gallery initial={items} shared owner={h} ownerHandle={h} title={titleFor(null, h)} home={HOME_URL} initialBoard={typeof board === "string" ? board : undefined} />;
 }

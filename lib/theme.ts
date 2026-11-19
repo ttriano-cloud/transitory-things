@@ -29,3 +29,11 @@ export function isDark() {
 
 // Runs before the page paints, so a chosen theme never flashes the other one.
 export const THEME_SCRIPT = `try{var t=localStorage.getItem("tt-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
+
+// The title at the top of a page: the one chosen in Settings, or "<Name>'s Things".
+export function titleFor(custom: unknown, name?: string | null) {
+  const t = typeof custom === "string" ? custom.trim() : "";
+  if (t) return t;
+  if (!name) return "Shared Things";
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)}’s Things`;
+}
