@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { isDark } from "@/lib/theme";
 
 // Moving backgrounds, drawn small and stretched so they read like soft video.
 // Each one follows the cursor (or your finger) a little.
@@ -173,7 +174,6 @@ export default function Backdrop({ mode }: { mode: BgMode }) {
     const cx = cv.getContext("2d", { alpha: false });
     if (!cx) return;
     const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const dark = matchMedia("(prefers-color-scheme: dark)");
     const shader = SHADERS[drawn];
     const bokeh = drawn === "bokeh" ? makeBokeh() : null;
     const p = pointer.current;
@@ -193,7 +193,7 @@ export default function Backdrop({ mode }: { mode: BgMode }) {
       if (!still) raf = requestAnimationFrame(frame);
       if (now - last < 50 && !still && !first) return;
       last = now;
-      const t = (now - t0) / 1000, dk = dark.matches;
+      const t = (now - t0) / 1000, dk = isDark();
       p.x += (p.tx - p.x) * 0.08;
       p.y += (p.ty - p.y) * 0.08;
       p.stir *= 0.94;

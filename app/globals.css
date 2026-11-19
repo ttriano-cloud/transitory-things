@@ -1,3 +1,5 @@
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 :root {
   color-scheme: light dark;
   --bg: light-dark(#fcfbf7, #111);
@@ -32,7 +34,9 @@ a { color: inherit; }
 .chip[aria-pressed="true"] { color: var(--ink); }
 .chip[aria-pressed="true"]::before, .tabs button[aria-pressed="true"]::before { content: "( "; }
 .chip[aria-pressed="true"]::after, .tabs button[aria-pressed="true"]::after { content: " )"; }
-.meta { display: flex; justify-content: center; gap: 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.owner { margin: 0; text-align: center; white-space: nowrap; }
+.owner span { color: var(--mute); }
+.tabs .meta { display: inline-flex; align-items: center; gap: 8px; padding: 6px 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sum { color: var(--mute); }
 .tools { display: flex; justify-content: flex-end; align-items: center; gap: 18px; }
 .search { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); height: 34px; flex: 0 1 170px; }
@@ -278,3 +282,8 @@ dialog.share .row.small .lk { font-size: 13px; }
   .tabs::-webkit-scrollbar { display: none; }
   .tabs > * { flex: none; }
 }
+
+/* settings: mode and background choices */
+.page dd.opts { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.page .opts .chip { padding: 0; }
+html.bg-on .page { text-shadow: 0 0 12px var(--bg), 0 0 4px var(--bg); }

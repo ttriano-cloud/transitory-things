@@ -129,15 +129,6 @@ export default function Gallery({ initial, email = "", shared = false, owner, ho
     toastTimer.current = setTimeout(() => setToast(null), undo ? 6000 : 3500);
   }, []);
 
-  // BG steps through the backgrounds (Shift+click goes back).
-  const cycleBg = (back = false) => {
-    const i = BACKDROPS.findIndex((x) => x.mode === bg);
-    const next = BACKDROPS[(i + (back ? -1 : 1) + BACKDROPS.length) % BACKDROPS.length];
-    setBgState(next.mode);
-    try { localStorage.setItem("tt-bg-mode", next.mode); } catch {}
-    say(next.mode === "off" ? "Background off." : `Background: ${next.label}`);
-  };
-
   // A thing opened by itself lives in the address (#id), so Back works.
   useEffect(() => {
     const read = () => {
@@ -517,7 +508,8 @@ export default function Gallery({ initial, email = "", shared = false, owner, ho
     gone: "Things you let go of will rest here. Most wants pass.",
   }[tab];
   const emptyShared = { all: "Nothing here yet.", want: "Nothing here yet.", bought: "Nothing bought yet.", gone: "Nothing let go yet." }[tab];
-  const bgLabel = BACKDROPS.find((x) => x.mode === bg)?.label || "Off";
+  // Whose things these are, shown at the top: "Trevor's Things".
+  const who = owner ? owner.charAt(0).toUpperCase() + owner.slice(1) : "";
 
   return (
     <>
@@ -532,10 +524,9 @@ export default function Gallery({ initial, email = "", shared = false, owner, ho
               </button>
             ))}
           </div>
-          <div className="meta">
-            <span>{inTab.length} {inTab.length === 1 ? "thing" : "things"}</span>
-            <span className="sum"><CountUp value={total} /></span>
-          </div>
+          <h1 className="owner up">
+            {who ? <>{who}’s <span>Things</span></> : <>Shared <span>Things</span></>}
+          </h1>
           <div className="tools">
             <label className="search">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
@@ -595,16 +586,16 @@ export default function Gallery({ initial, email = "", shared = false, owner, ho
               <sup>{counts[t] || ""}</sup>
             </button>
           ))}
+          <span className="meta" aria-live="polite">
+            <span>{inTab.length} {inTab.length === 1 ? "thing" : "things"}</span>
+            <span className="sum"><CountUp value={total} /></span>
+          </span>
           {!shared && (
             <>
               <button className="soft" onClick={() => setEditing({})}>Add +</button>
               <button className="soft" onClick={() => setSharing(true)} title="Get a link to share your things">Share</button>
-              <a className="soft" href="/save-button" title="Save things from any shop">Save button</a>
             </>
           )}
-          <button className="soft bgbtn" aria-pressed={bg !== "off"} onClick={(e) => cycleBg(e.shiftKey)} title={`Background: ${bgLabel}. Click for the next one.`} aria-label={`Background: ${bgLabel}. Next background`}>
-            BG
-          </button>
         </div>
         <div className="views" role="group" aria-label="Layout">
           {VIEWS.map(({ v, label, dots }) => (
