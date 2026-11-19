@@ -143,6 +143,8 @@ html.bg-on .head, html.bg-on .note, html.bg-on .where { text-shadow: 0 0 12px va
 .login input { height: 46px; border: 0; border-bottom: 1px solid var(--line); background: none; outline: 0; font-size: 16px; }
 .login button { height: 46px; border: 1px solid var(--ink); background: var(--ink); color: var(--bg); cursor: pointer; }
 .login p { font-size: 13px; color: var(--mute); margin: 0; }
+.login p a { color: inherit; }
+.login button:disabled { opacity: .6; cursor: default; }
 
 :focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
 
