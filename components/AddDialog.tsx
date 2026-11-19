@@ -42,7 +42,7 @@ export default function AddDialog({
   onDelete,
 }: {
   thing?: Thing;
-  pre?: { url?: string; file?: File };
+  pre?: { url?: string; file?: File; html?: string };
   boards: string[];
   defaultBoard: string;
   onClose: () => void;
@@ -62,12 +62,13 @@ export default function AddDialog({
   const [busy, setBusy] = useState<"" | "import" | "save">("");
   const [msg, setMsg] = useState("");
   const [over, setOver] = useState(false);
+  const [blocked, setBlocked] = useState(false);
   const imported = useRef("");
 
   useEffect(() => {
     ref.current?.showModal();
     if (pre?.file) takeFile(pre.file);
-    if (pre?.url) doImport(pre.url);
+    if (pre?.url) doImport(pre.url, pre.html);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -76,14 +77,14 @@ export default function AddDialog({
     setPhoto({ kind: "file", file: f, preview: URL.createObjectURL(f) });
   }
 
-  async function doImport(link: string) {
+  async function doImport(link: string, html?: string) {
     link = link.trim();
     if (!/^https?:\/\//i.test(link) || imported.current === link) return;
     imported.current = link;
     setBusy("import");
     setMsg("Reading the page…");
     try {
-      const r = await fetch("/api/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: link }) });
+      const r = await fetch("/api/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: link, html }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Couldn't read that page.");
       setName((v) => v || d.name || "");
@@ -91,6 +92,7 @@ export default function AddDialog({
       setPrice((v) => v || (d.price != null ? String(d.price) : ""));
       setPicks(d.images || []);
       setPhoto((p) => (p.kind === "none" && d.images?.length ? { kind: "remote", url: d.images[0] } : p));
+      setBlocked(!!d.blocked);
       setMsg(d.warning || (d.images?.length ? `Found ${d.images.length} photo${d.images.length === 1 ? "" : "s"}. Choose one.` : "No photos found. Paste or drop one."));
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Couldn't read that page.");
@@ -246,7 +248,15 @@ export default function AddDialog({
               </button>
             )}
           </div>
-          <p className="hint" role="status">{busy === "import" ? "Reading the page…" : msg}</p>
+          <p className="hint" role="status">
+            {busy === "import" ? "Reading the page…" : msg}
+            {blocked && busy !== "import" && (
+              <>
+                {" "}
+                <a href="/save-button" target="_blank" rel="noopener">Get the Save button</a>
+              </>
+            )}
+          </p>
         </div>
       </form>
     </dialog>

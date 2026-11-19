@@ -67,10 +67,73 @@ function findProducts(node: unknown, out: any[] = []): any[] {
   return out;
 }
 
-function num(v: unknown): number | null {
+// Reads a price written any common way: "240.00", "$1,299", "1.299,00 €", "77".
+export function parsePrice(v: unknown): number | null {
   if (v == null) return null;
-  const n = parseFloat(String(v).replace(/[^0-9.,]/g, "").replace(/,(?=\d{3}\b)/g, "").replace(",", "."));
-  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
+  if (typeof v === "number") return Number.isFinite(v) && v > 0 ? Math.round(v * 100) / 100 : null;
+  let s = String(v).replace(/[^0-9.,]/g, "");
+  if (!s) return null;
+  const lastDot = s.lastIndexOf("."), lastComma = s.lastIndexOf(",");
+  if (lastDot >= 0 && lastComma >= 0) {
+    // Both appear: whichever comes last is the decimal mark.
+    s = lastComma > lastDot ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
+  } else if (lastComma >= 0) {
+    // "1,299" is thousands; "12,50" is a decimal.
+    s = /,\d{3}$/.test(s) && !/,\d{3},?\d{1,2}$/.test(s) ? s.replace(/,/g, "") : s.replace(/,(?=\d{3}(\D|$))/g, "").replace(",", ".");
+  } else if ((s.match(/\./g) || []).length > 1) {
+    s = s.replace(/\.(?=\d{3}(\D|$))/g, "");
+  }
+  const n = parseFloat(s);
+  return Number.isFinite(n) && n > 0 && n < 10_000_000 ? Math.round(n * 100) / 100 : null;
+}
+const num = parsePrice;
+
+const SYMBOLS: Record<string, string> = { "US$": "USD", "C$": "CAD", "CA$": "CAD", "A$": "AUD", "AU$": "AUD", $: "USD", "£": "GBP", "€": "EUR", "¥": "JPY", "₩": "KRW", "kr": "SEK" };
+const MONEY = /(US\$|CA?\$|AU?\$|USD|EUR|GBP|CAD|AUD|JPY|[$£€¥₩])\s?(\d[\d.,\s]*\d|\d)|(\d[\d.,\s]*\d|\d)\s?(€|£|USD|EUR|GBP|kr)/;
+const NOT_THE_PRICE = /(compare|was-?price|\bold|original|regular|strike|crossed|before|msrp|list-?price|saving|discount|range|filter|slider|unit-?price|per-?unit|install|klarna|afterpay|affirm|shipping|cart|recommend|related|upsell|recent|wishlist)/i;
+
+function moneyIn(text: string): { price: number; currency: string | null } | null {
+  const m = text.replace(/\u00a0/g, " ").match(MONEY);
+  if (!m) return null;
+  const sym = m[1] || m[4];
+  const price = parsePrice(m[2] || m[3]);
+  if (price == null) return null;
+  return { price, currency: SYMBOLS[sym] || (/^[A-Z]{3}$/.test(sym) ? sym : null) };
+}
+
+// Last resort: the price as it's shown on the page.
+function visiblePrice($: cheerio.CheerioAPI): { price: number; currency: string | null } | null {
+  const sel = '[itemprop="price"], [data-price], [class*="price" i], [id*="price" i], [data-testid*="price" i], [data-test*="price" i]';
+  let found: { price: number; currency: string | null } | null = null;
+  $(sel).each((_, el) => {
+    if (found) return false;
+    const e = $(el);
+    if (e.closest("del, s, strike, header, footer, nav, aside").length) return;
+    let bad = false;
+    e.parents().addBack().slice(-4).each((_, a) => {
+      const c = `${$(a).attr("class") || ""} ${$(a).attr("id") || ""} ${$(a).attr("data-testid") || ""}`;
+      if (NOT_THE_PRICE.test(c)) bad = true;
+    });
+    if (bad) return;
+    // Read the text without any crossed-out or "compare at" prices inside it.
+    const c = e.clone();
+    c.find("del, s, strike").remove();
+    c.find("[class], [id]").each((_, x) => {
+      if (NOT_THE_PRICE.test(`${$(x).attr("class") || ""} ${$(x).attr("id") || ""}`)) $(x).remove();
+    });
+    const text = c.text().replace(/\s+/g, " ").trim();
+    if (!text || text.length > 60) return;
+    found = moneyIn(text);
+  });
+  return found;
+}
+
+// Bot checks and error pages that some shops show to servers instead of the product.
+export function looksBlocked(html: string): boolean {
+  const $ = cheerio.load(html);
+  if ($('script[type="application/ld+json"]').text().match(/"@type"\s*:\s*"Product"/i)) return false;
+  const t = `${$("title").text()} ${$("h1").first().text()}`.toLowerCase();
+  return /(just a moment|attention required|access denied|are you a (human|robot)|robot or human|verify (you are|you're) (a )?human|captcha|pardon our interruption|request (was )?blocked|forbidden|security check|bot detection|please enable (js|javascript)|page not found|404)/.test(t);
 }
 
 export function extractProduct(html: string, pageUrl: string): Extracted {
@@ -93,8 +156,19 @@ export function extractProduct(html: string, pageUrl: string): Extracted {
       /* broken JSON on the page; skip it */
     }
   });
-  const p = products[0] || {};
-  const offers = asArray(p.offers)[0] || {};
+  // Prefer the first product that actually lists a price.
+  const offerOf = (prod: any) => {
+    for (const o of asArray(prod?.offers)) {
+      for (const x of [o, ...asArray(o?.offers)]) {
+        const spec = asArray(x?.priceSpecification)[0] || {};
+        const price = num(x?.price) ?? num(x?.lowPrice) ?? num(spec.price);
+        if (price != null) return { price, priceCurrency: x?.priceCurrency || spec.priceCurrency || null };
+      }
+    }
+    return null;
+  };
+  const p = products.find((x) => offerOf(x)) || products[0] || {};
+  const offers = offerOf(p) || ({} as { price?: number; priceCurrency?: string | null });
 
   const siteName = meta('meta[property="og:site_name"]');
   let name =
@@ -107,19 +181,34 @@ export function extractProduct(html: string, pageUrl: string): Extracted {
   name = name.replace(/\s+/g, " ").trim();
   if (siteName) name = name.replace(new RegExp(`\\s*[|\\-–—:]\\s*${siteName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`, "i"), "");
 
-  const price =
+  let price =
     num(offers.price) ??
-    num(offers.lowPrice) ??
     num(meta('meta[property="product:price:amount"]')) ??
     num(meta('meta[property="og:price:amount"]')) ??
     num($('[itemprop="price"]').first().attr("content")) ??
     null;
-  const currency =
+  let currency: string | null =
     offers.priceCurrency ||
     meta('meta[property="product:price:currency"]') ||
     meta('meta[property="og:price:currency"]') ||
     $('[itemprop="priceCurrency"]').first().attr("content") ||
     null;
+  if (price == null) {
+    // Twitter cards often carry "$77.00" in a data field labelled Price.
+    $('meta[name^="twitter:label"]').each((_, el) => {
+      if (price != null || !/price/i.test($(el).attr("content") || "")) return;
+      const n = ($(el).attr("name") || "").replace("label", "data");
+      const m = moneyIn(meta(`meta[name="${n}"]`));
+      if (m) ({ price, currency } = { price: m.price, currency: currency || m.currency });
+    });
+  }
+  if (price == null) {
+    const m = visiblePrice($);
+    if (m) {
+      price = m.price;
+      currency = currency || m.currency;
+    }
+  }
 
   // Collect candidate photos, best sources first.
   const found: string[] = [];

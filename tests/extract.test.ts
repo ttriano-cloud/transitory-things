@@ -43,3 +43,48 @@ test("guesses a name from the link when the page can't be read", () => {
   assert.equal(nameFromUrl("https://www.ssense.com/en-us/men/product/our-legacy/black-wool-overshirt/16012341"), "Black wool overshirt");
   assert.equal(nameFromUrl("https://www.zara.com/us/en/textured-knit-sweater-p03920355.html"), "Textured knit sweater");
 });
+
+test("reads prices written different ways", async () => {
+  const { parsePrice } = await import("../lib/extract.ts");
+  assert.equal(parsePrice("$1,299.00"), 1299);
+  assert.equal(parsePrice("1.299,00 €"), 1299);
+  assert.equal(parsePrice("12,50"), 12.5);
+  assert.equal(parsePrice("1,299"), 1299);
+  assert.equal(parsePrice("77"), 77);
+  assert.equal(parsePrice(240), 240);
+  assert.equal(parsePrice("free"), null);
+});
+
+test("finds the price inside nested offers and price specifications", () => {
+  const html = `<html><head><script type="application/ld+json">[{"@type":"BreadcrumbList"},{"@type":"Product","name":"Linen Throw","offers":{"@type":"AggregateOffer","offers":[{"@type":"Offer","priceSpecification":{"price":"185.00","priceCurrency":"EUR"}}]}}]</script></head><body></body></html>`;
+  const r = extractProduct(html, "https://example.com/throw");
+  assert.equal(r.name, "Linen Throw");
+  assert.equal(r.price, 185);
+  assert.equal(r.currency, "EUR");
+});
+
+test("reads the price shown on the page, skipping crossed-out and suggested prices", () => {
+  const html = `<html><head><title>Field Jacket</title></head><body>
+  <header><span class="cart-price">$0.00</span></header>
+  <h1>Field Jacket</h1>
+  <div class="product__price"><s class="price--compare">$420.00</s><span class="price-item price-item--sale">$315.00</span></div>
+  <section class="related-products"><span class="price">$90</span></section>
+  </body></html>`;
+  const r = extractProduct(html, "https://shop.example/field-jacket");
+  assert.equal(r.price, 315);
+  assert.equal(r.currency, "USD");
+});
+
+test("reads Twitter card price labels", () => {
+  const html = `<html><head><meta name="twitter:label1" content="Price"><meta name="twitter:data1" content="£48.00"></head><body></body></html>`;
+  const r = extractProduct(html, "https://shop.co.uk/mug");
+  assert.equal(r.price, 48);
+  assert.equal(r.currency, "GBP");
+});
+
+test("recognizes bot checks", async () => {
+  const { looksBlocked } = await import("../lib/extract.ts");
+  assert.equal(looksBlocked("<html><head><title>Just a moment...</title></head></html>"), true);
+  assert.equal(looksBlocked("<html><head><title>Access Denied</title></head></html>"), true);
+  assert.equal(looksBlocked(`<html><head><title>Lamp</title></head><body><h1>Lamp</h1></body></html>`), false);
+});

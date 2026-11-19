@@ -389,6 +389,7 @@ export default function Gallery({ initial, email }: { initial: Thing[]; email: s
             </button>
           ))}
           <button className="soft" onClick={() => setEditing({})}>Add +</button>
+          <a className="soft" href="/save-button" title="Save things from any shop">Save button</a>
           <button className="soft" aria-pressed={bg} onClick={toggleBg} title="Water background">BG</button>
         </div>
         <div className="views" role="group" aria-label="Layout">

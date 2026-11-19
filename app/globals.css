@@ -164,3 +164,19 @@ html.bg-on .head, html.bg-on .note, html.bg-on .where { text-shadow: 0 0 12px va
   .l-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* links that sit with the bottom-bar buttons */
+.tabs a.soft { text-transform: uppercase; letter-spacing: .02em; font-size: 12.5px; font-weight: 500; padding: 6px 0; text-decoration: none; white-space: nowrap; }
+@media (max-width: 700px) { .tabs a.soft { display: none; } }
+
+/* save button page and the save popup */
+.page { min-height: 100vh; display: grid; place-items: center; padding: 32px 24px; }
+.page > div { width: min(520px, 100%); display: grid; gap: 18px; }
+.page h1 { font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: .02em; margin: 0 0 8px; }
+.page h1 span, .page p, .page li { color: var(--mute); }
+.page p, .page li { font-size: 14px; line-height: 1.55; margin: 0; }
+.page ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.page .bm { justify-self: start; display: inline-flex; align-items: center; height: 46px; padding: 0 22px; border: 1px solid var(--ink); background: var(--ink); color: var(--bg); text-decoration: none; cursor: grab; font-weight: 500; }
+.clip dialog { width: 100vw; max-width: 100vw; height: 100vh; max-height: 100vh; margin: 0; }
+.clip .form { grid-template-columns: 1fr; }
+.clip .drop { aspect-ratio: 16 / 10; }
