@@ -7,14 +7,14 @@ import { THEMES, applyTheme, readTheme, type Theme } from "@/lib/theme";
 // Theme and background, chosen in Settings. The background previews live behind the page.
 export default function Appearance() {
   const [theme, setTheme] = useState<Theme>("auto");
-  const [bg, setBg] = useState<BgMode>("water");
+  const [bg, setBg] = useState<BgMode>("off");
 
   useEffect(() => {
     setTheme(readTheme());
     try {
       const b = localStorage.getItem("tt-bg-mode") as BgMode | null;
       if (b && BACKDROPS.some((x) => x.mode === b)) setBg(b);
-      else if (localStorage.getItem("tt-bg") === "0") setBg("off");
+      else setBg(localStorage.getItem("tt-bg") === "0" ? "off" : "water");
     } catch {}
   }, []);
 

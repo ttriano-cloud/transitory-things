@@ -110,7 +110,7 @@ export default function Gallery({ initial, email = "", shared = false, community
   const [q, setQ] = useState("");
   const [sort, setSortState] = useState<Sort>(community ? "new" : "mine");
   const [view, setViewState] = useState<View>("grid");
-  const [bg, setBgState] = useState<BgMode>("water");
+  const [bg, setBgState] = useState<BgMode>("off");
   const [focus, setFocus] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [editing, setEditing] = useState<{ thing?: Thing; pre?: { url?: string; file?: File } } | null>(null);
@@ -129,7 +129,7 @@ export default function Gallery({ initial, email = "", shared = false, community
       if (s && SORTS.includes(s)) setSortState(s);
       const b = localStorage.getItem("tt-bg-mode") as BgMode | null;
       if (b && BACKDROPS.some((x) => x.mode === b)) setBgState(b);
-      else if (localStorage.getItem("tt-bg") === "0") setBgState("off");
+      else setBgState(localStorage.getItem("tt-bg") === "0" ? "off" : "water");
     } catch {}
   }, []);
   const setView = (v: View) => {
