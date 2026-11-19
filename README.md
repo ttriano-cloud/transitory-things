@@ -53,6 +53,21 @@ Now open your Vercel address, enter your email, click the link in the email, and
 3. At porkbun.com, open **Domain Management** > `transitorythings.com` > **DNS**. Delete any default parking records for the bare domain and `www`, then add the records Vercel showed you.
 4. Wait a few minutes (occasionally up to an hour). Vercel's Domains page turns green when it works, and adds the security certificate on its own.
 
+### 6. Turn on name pages (yourname.transitorythings.com)
+
+Name pages need a wildcard address, `*.transitorythings.com`. Vercel can only make the security certificate for it if it can answer a DNS check, so pick one of these:
+
+**Option A, keep DNS at Porkbun (nothing else moves):**
+1. In Vercel, open the project > **Settings** > **Domains** and add `*.transitorythings.com`.
+2. Vercel shows the records it needs. At porkbun.com, open `transitorythings.com` > **DNS** and add exactly what it shows. Usually:
+   - **NS** record, host `_acme-challenge`, values `ns1.vercel-dns.com` and `ns2.vercel-dns.com`
+   - **CNAME** record, host `*`, value `cname.vercel-dns.com`
+3. Wait until the wildcard turns green in Vercel.
+
+**Option B, move DNS to Vercel:** at Porkbun, change the nameservers to `ns1.vercel-dns.com` and `ns2.vercel-dns.com`, then add `*.transitorythings.com` in Vercel. If you get email at this domain, copy its MX and TXT records into Vercel's DNS first.
+
+Then run the latest `supabase/schema.sql` in Supabase (step 2.3) if you haven't since this was added.
+
 ---
 
 ## Using it
@@ -64,11 +79,15 @@ Now open your Vercel address, enter your email, click the link in the email, and
 - **Bottom bar:** All, Wanting, Bought, Let go, Add +, the backgrounds (BG steps through Water, Fog, Contour, Dusk, Light leak, Bokeh, and off; Shift+click goes back), and the three layouts (the dots).
 - **Chrome extension:** see `/save-button` on the site. It reads the page in your own browser and also brings the brand, the color and size you picked, sale price, stock, and the photo you were looking at. Its code is in `extension/`; after changing it, rebuild `public/transitory-things-extension.zip` with `cd extension && zip -qr -X ../public/transitory-things-extension.zip . -x '.*'`.
 - **Boards:** type any name in the Board field. It shows up in the top row.
+- **Share:** click **Share** in the bottom bar. Two ways, both look-only, and your notes stay private:
+  - **Your page:** claim a name to get `yourname.transitorythings.com`. Anyone who knows or guesses the name can see it. Change the name or turn it off any time.
+  - **Private link:** a random link like `transitorythings.com/s/k7mq2xpd9wht` that only works for people you send it to. **Make a new link** turns the old one off.
+  - With a board selected, links can open on that board.
 
 ## Notes
 
 - **Some big shops block automatic reading** (Amazon most of all). For those, you'll see the name guessed from the link and can paste a photo yourself. For better results, add a `MICROLINK_API_KEY` environment variable in Vercel (from microlink.io, paid).
-- **Your things are private.** Only you can see or change them. Photos are stored with long random names, so they can only be found by someone who already has the exact link.
+- **Your things are private** unless you share your link. Only you can change them. Photos are stored with long random names, so they can only be found by someone who already has the exact link.
 - **Free limits:** Supabase's free tier pauses a project after a week with no visits. Opening the site wakes it, but the first load can take a few seconds. It also includes 1 GB of photo storage, which is thousands of photos.
 
 ## For developers
