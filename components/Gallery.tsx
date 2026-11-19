@@ -7,6 +7,7 @@ import type { Details } from "@/lib/details";
 import AddDialog, { type Draft } from "./AddDialog";
 import Backdrop, { BACKDROPS, type BgMode } from "./Backdrop";
 import ShareDialog from "./ShareDialog";
+import DotMenu from "./DotMenu";
 
 export type Thing = {
   id: string;
@@ -612,9 +613,12 @@ export default function Gallery({ initial, email = "", shared = false, owner, ho
             </button>
           ))}
         </div>
-        <a className="brand up" href="/" onClick={(e) => { if (focus || shared) { e.preventDefault(); if (focus) unfocus(); else window.scrollTo({ top: 0, behavior: "smooth" }); } }}>
-          Transitory <span>Things</span>
-        </a>
+        <div className="brandrow">
+          <a className="brand up" href="/" onClick={(e) => { if (focus || shared) { e.preventDefault(); if (focus) unfocus(); else window.scrollTo({ top: 0, behavior: "smooth" }); } }}>
+            Transitory <span>Things</span>
+          </a>
+          {!shared && <DotMenu />}
+        </div>
       </nav>
 
       {sharing && <ShareDialog sb={sb} board={board} onClose={() => setSharing(false)} say={say} />}
