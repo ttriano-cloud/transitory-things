@@ -56,3 +56,8 @@ create policy "things photos: upload own" on storage.objects for insert to authe
 drop policy if exists "things photos: delete own" on storage.objects;
 create policy "things photos: delete own" on storage.objects for delete to authenticated
   using (bucket_id = 'things' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- Photo framing in the grid: focal point (0-100%) and zoom (1 = fit).
+alter table public.things add column if not exists image_x real;
+alter table public.things add column if not exists image_y real;
+alter table public.things add column if not exists image_zoom real;

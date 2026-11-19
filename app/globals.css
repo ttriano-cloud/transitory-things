@@ -180,3 +180,17 @@ html.bg-on .head, html.bg-on .note, html.bg-on .where { text-shadow: 0 0 12px va
 .clip dialog { width: 100vw; max-width: 100vw; height: 100vh; max-height: 100vh; margin: 0; }
 .clip .form { grid-template-columns: 1fr; }
 .clip .drop { aspect-ratio: 16 / 10; }
+
+/* photo framing: the grid crops photos to its tiles, centered and zoomed as chosen */
+.l-grid .plate img { object-position: var(--fx, 50%) var(--fy, 50%); transform: scale(var(--fz, 1)); transform-origin: var(--fx, 50%) var(--fy, 50%); }
+.drop.framed { aspect-ratio: 4 / 5; cursor: grab; touch-action: none; padding: 0; border-style: solid; border-color: #3a3a3a; }
+.drop.framed:active { cursor: grabbing; }
+.drop.framed span { display: none; }
+.drop.framed img { object-fit: cover; object-position: var(--fx, 50%) var(--fy, 50%); transform: scale(var(--fz, 1)); transform-origin: var(--fx, 50%) var(--fy, 50%); user-select: none; -webkit-user-drag: none; pointer-events: none; }
+.frame-tools { display: flex; align-items: center; gap: 16px; margin-top: 10px; font-size: 13px; }
+.frame-tools .zoom { display: flex; align-items: center; gap: 8px; flex: 1; color: #aaa; }
+.frame-tools .zoom input { flex: 1; accent-color: #f4f4f4; }
+.frame-tools .lk { color: #aaa; }
+.frame-tools .lk:hover, .frame-tools .lk:focus-visible { color: #f4f4f4; }
+@media (max-width: 700px) { .drop.framed { width: min(100%, 48vh); margin: 0 auto; } }
+.clip .drop.framed { width: min(100%, 44vh); margin: 0 auto; }

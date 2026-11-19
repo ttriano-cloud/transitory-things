@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Thing } from "./Gallery";
+import { frameStyle, type Thing } from "./Gallery";
 
 type Photo =
   | { kind: "none" }
@@ -63,6 +63,12 @@ export default function AddDialog({
   const [msg, setMsg] = useState("");
   const [over, setOver] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  // Framing: where the photo is centered (0-100%) and how far it's zoomed in.
+  const [fx, setFx] = useState(thing?.image_x ?? 50);
+  const [fy, setFy] = useState(thing?.image_y ?? 50);
+  const [fz, setFz] = useState(thing?.image_zoom ?? 1);
+  const drag = useRef<{ x: number; y: number; fx: number; fy: number; w: number; h: number; moved: boolean } | null>(null);
+  const firstPreview = useRef<string | null>(null);
   const imported = useRef("");
 
   useEffect(() => {
@@ -132,6 +138,7 @@ export default function AddDialog({
         image_path = path;
       }
       const p = price.replace(/[^0-9.]/g, "");
+      const framed = image_url ? { image_x: Math.round(fx * 10) / 10, image_y: Math.round(fy * 10) / 10, image_zoom: Math.round(fz * 100) / 100 } : { image_x: null, image_y: null, image_zoom: null };
       await onSave({
         id: thing?.id,
         name: name.trim(),
@@ -143,6 +150,7 @@ export default function AddDialog({
         note: note.trim() || null,
         image_url,
         image_path,
+        ...framed,
       });
     } catch (err) {
       // Database errors arrive as plain objects with a message, not as Error.
@@ -154,18 +162,72 @@ export default function AddDialog({
 
   const preview = photo.kind === "file" ? photo.preview : photo.kind === "none" ? "" : photo.url;
 
+  // A different photo starts centered again; the photo it opened with keeps its framing.
+  useEffect(() => {
+    if (firstPreview.current === null) {
+      firstPreview.current = preview;
+      return;
+    }
+    setFx(50);
+    setFy(50);
+    setFz(1);
+  }, [preview]);
+
+  const clamp = (n: number) => Math.min(100, Math.max(0, n));
+  function startDrag(e: React.PointerEvent<HTMLDivElement>) {
+    if (!preview || e.button !== 0) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    drag.current = { x: e.clientX, y: e.clientY, fx, fy, w: r.width, h: r.height, moved: false };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function moveDrag(e: React.PointerEvent<HTMLDivElement>) {
+    const d = drag.current;
+    if (!d) return;
+    const dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if (Math.abs(dx) + Math.abs(dy) > 3) d.moved = true;
+    // Dragging the photo right shows more of its left side, like moving a print under a mat.
+    setFx(clamp(d.fx - (dx / d.w) * 100 / fz));
+    setFy(clamp(d.fy - (dy / d.h) * 100 / fz));
+  }
+  function endDrag() {
+    drag.current = null;
+  }
+  function nudge(e: React.KeyboardEvent<HTMLDivElement>) {
+    const step = e.shiftKey ? 10 : 2;
+    const k: Record<string, () => void> = {
+      ArrowLeft: () => setFx((v) => clamp(v + step)),
+      ArrowRight: () => setFx((v) => clamp(v - step)),
+      ArrowUp: () => setFy((v) => clamp(v + step)),
+      ArrowDown: () => setFy((v) => clamp(v - step)),
+      "+": () => setFz((v) => Math.min(3, v + 0.1)),
+      "=": () => setFz((v) => Math.min(3, v + 0.1)),
+      "-": () => setFz((v) => Math.max(1, v - 0.1)),
+    };
+    if (k[e.key]) {
+      e.preventDefault();
+      k[e.key]();
+    }
+  }
+
   return (
     <dialog ref={ref} onClose={onClose} onCancel={onClose} aria-labelledby="dlgtitle">
       <form className="form" onSubmit={submit}>
         <h2 id="dlgtitle">{thing ? "Edit thing" : "Add a thing"}</h2>
         <div>
           <div
-            className={`drop${over ? " over" : ""}`}
+            className={`drop${over ? " over" : ""}${preview ? " framed" : ""}`}
             tabIndex={0}
-            role="button"
-            aria-label="Choose a photo"
-            onClick={() => fileRef.current?.click()}
-            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && fileRef.current?.click()}
+            role={preview ? "group" : "button"}
+            aria-label={preview ? "Photo framing. Drag to move the photo, or use the arrow keys. Plus and minus zoom." : "Choose a photo"}
+            onClick={() => !preview && fileRef.current?.click()}
+            onKeyDown={(e) => {
+              if (preview) return nudge(e);
+              if (e.key === "Enter" || e.key === " ") fileRef.current?.click();
+            }}
+            onPointerDown={startDrag}
+            onPointerMove={moveDrag}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
             onDragOver={(e) => {
               e.preventDefault();
               setOver(true);
@@ -180,8 +242,22 @@ export default function AddDialog({
             }}
           >
             <span>Paste a link to find photos, or drop, paste, or choose an image.</span>
-            {preview && <img src={preview} alt="" referrerPolicy="no-referrer" />}
+            {preview && <img src={preview} alt="" referrerPolicy="no-referrer" draggable={false} style={frameStyle({ image_x: fx, image_y: fy, image_zoom: fz })} />}
           </div>
+          {preview && (
+            <div className="frame-tools">
+              <label className="zoom">
+                <span>Zoom</span>
+                <input type="range" min={1} max={3} step={0.01} value={fz} onChange={(e) => setFz(Number(e.target.value))} />
+              </label>
+              <button type="button" className="lk" onClick={() => { setFx(50); setFy(50); setFz(1); }}>
+                Center
+              </button>
+              <button type="button" className="lk" onClick={() => fileRef.current?.click()}>
+                Replace photo
+              </button>
+            </div>
+          )}
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && takeFile(e.target.files[0])} />
           {picks.length > 0 && (
             <div className="picks" role="group" aria-label="Photos from the page">

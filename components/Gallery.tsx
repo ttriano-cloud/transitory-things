@@ -16,6 +16,10 @@ export type Thing = {
   note: string | null;
   image_url: string | null;
   image_path: string | null;
+  // How the photo is framed in the grid: focal point (0-100%) and zoom (1 = fit).
+  image_x: number | null;
+  image_y: number | null;
+  image_zoom: number | null;
   status: "want" | "bought" | "gone";
   is_public: boolean;
   created_at: string;
@@ -35,6 +39,9 @@ const hsh = (t: string, n: number) => {
   h ^= h >>> 15;
   return (h >>> 0) / 4294967295;
 };
+// The grid crops photos to fit its tiles; this applies the framing chosen when adding.
+export const frameStyle = (x: { image_x?: number | null; image_y?: number | null; image_zoom?: number | null }) =>
+  ({ "--fx": `${x.image_x ?? 50}%`, "--fy": `${x.image_y ?? 50}%`, "--fz": x.image_zoom ?? 1 }) as React.CSSProperties;
 const meta = (x: Thing) => [money(x.price), x.store, x.board].filter(Boolean).join(" · ");
 
 function CountUp({ value }: { value: number }) {
@@ -266,7 +273,7 @@ export default function Gallery({ initial, email }: { initial: Thing[]; email: s
   };
 
   const pic = (x: Thing) =>
-    x.image_url ? <img src={x.image_url} alt="" loading="lazy" /> : <span className="noimg">{x.name}</span>;
+    x.image_url ? <img src={x.image_url} alt="" loading="lazy" style={frameStyle(x)} /> : <span className="noimg">{x.name}</span>;
 
   const card = (x: Thing, i: number) => {
     const dim = tab === "all" && x.status !== "want" ? " dim" : "";
