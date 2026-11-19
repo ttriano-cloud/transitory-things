@@ -64,11 +64,12 @@ Now open your Vercel address, enter your email, click the link in the email, and
 - **Bottom bar:** All, Wanting, Bought, Let go, Add +, the backgrounds (BG steps through Water, Fog, Contour, Dusk, Light leak, Bokeh, and off; Shift+click goes back), and the three layouts (the dots).
 - **Chrome extension:** see `/save-button` on the site. It reads the page in your own browser and also brings the brand, the color and size you picked, sale price, stock, and the photo you were looking at. Its code is in `extension/`; after changing it, rebuild `public/transitory-things-extension.zip` with `cd extension && zip -qr -X ../public/transitory-things-extension.zip . -x '.*'`.
 - **Boards:** type any name in the Board field. It shows up in the top row.
+- **Share:** click **Share** in the bottom bar to get your own link (like `transitorythings.com/s/k7mq2xpd9wht`). Anyone with it sees your things, read-only, without your notes. With a board selected, you can make the link open on that board. **Make a new link** turns the old one off; **Stop sharing** turns sharing off.
 
 ## Notes
 
 - **Some big shops block automatic reading** (Amazon most of all). For those, you'll see the name guessed from the link and can paste a photo yourself. For better results, add a `MICROLINK_API_KEY` environment variable in Vercel (from microlink.io, paid).
-- **Your things are private.** Only you can see or change them. Photos are stored with long random names, so they can only be found by someone who already has the exact link.
+- **Your things are private** unless you share your link. Only you can change them. Photos are stored with long random names, so they can only be found by someone who already has the exact link.
 - **Free limits:** Supabase's free tier pauses a project after a week with no visits. Opening the site wakes it, but the first load can take a few seconds. It also includes 1 GB of photo storage, which is thousands of photos.
 
 ## For developers

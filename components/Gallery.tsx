@@ -6,6 +6,7 @@ import { saveThing } from "@/lib/save";
 import type { Details } from "@/lib/details";
 import AddDialog, { type Draft } from "./AddDialog";
 import Backdrop, { BACKDROPS, type BgMode } from "./Backdrop";
+import ShareDialog from "./ShareDialog";
 
 export type Thing = {
   id: string;
@@ -80,16 +81,18 @@ const VIEWS: { v: View; label: string; dots: number[] }[] = [
   { v: "lib", label: "Single column", dots: [1, 1, 1, 0, 1, 1] },
 ];
 
-export default function Gallery({ initial, email }: { initial: Thing[]; email: string }) {
+// shared: someone else's things, seen through their share link. Look, don't touch.
+export default function Gallery({ initial, email = "", shared = false, initialBoard, signedIn = false }: { initial: Thing[]; email?: string; shared?: boolean; initialBoard?: string; signedIn?: boolean }) {
   const sb = useMemo(() => createClient(), []);
   const [items, setItems] = useState<Thing[]>(initial);
   const [tab, setTab] = useState<Tab>("want");
-  const [board, setBoard] = useState("All");
+  const [board, setBoard] = useState(initialBoard || "All");
   const [q, setQ] = useState("");
   const [sort, setSortState] = useState<Sort>("mine");
   const [view, setViewState] = useState<View>("grid");
   const [bg, setBgState] = useState<BgMode>("water");
   const [focus, setFocus] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
   const [editing, setEditing] = useState<{ thing?: Thing; pre?: { url?: string; file?: File } } | null>(null);
   const [toast, setToast] = useState<{ msg: string; undo?: () => void } | null>(null);
   // While dragging, the order shown on screen (ids), before it's saved.
@@ -101,7 +104,8 @@ export default function Gallery({ initial, email }: { initial: Thing[]; email: s
     try {
       const v = localStorage.getItem("tt-view") as View | null;
       if (v && ["grid", "scatter", "lib"].includes(v)) setViewState(v);
-      const s = localStorage.getItem("tt-sort") as Sort | null;
+      // A shared board opens in its owner's order.
+      const s = shared ? null : (localStorage.getItem("tt-sort") as Sort | null);
       if (s && SORTS.includes(s)) setSortState(s);
       const b = localStorage.getItem("tt-bg-mode") as BgMode | null;
       if (b && BACKDROPS.some((x) => x.mode === b)) setBgState(b);
@@ -237,6 +241,11 @@ export default function Gallery({ initial, email }: { initial: Thing[]; email: s
 
   // Paste or drop an image or link anywhere to start adding.
   useEffect(() => {
+    if (shared) {
+      const onKey = (e: KeyboardEvent) => e.key === "Escape" && focus && unfocus();
+      addEventListener("keydown", onKey);
+      return () => removeEventListener("keydown", onKey);
+    }
     const onPaste = (e: ClipboardEvent) => {
       if (editing) return;
       const f = [...(e.clipboardData?.files || [])].find((f) => f.type.startsWith("image/"));
@@ -273,7 +282,7 @@ export default function Gallery({ initial, email }: { initial: Thing[]; email: s
       removeEventListener("drop", onDrop);
       removeEventListener("keydown", onKey);
     };
-  }, [editing, focus]);
+  }, [editing, focus, shared]);
 
   // ---- Moving things around ----
   // Press and drag a photo to move it (on a phone, press and hold first).
@@ -285,7 +294,7 @@ export default function Gallery({ initial, email }: { initial: Thing[]; email: s
   const beginRef = useRef<() => void>(() => {});
   const live = useRef({ shown, drag, saveOrder });
   live.current = { shown, drag, saveOrder };
-  const canMove = view !== "scatter" && !focus;
+  const canMove = !shared && view !== "scatter" && !focus;
 
   // Keeps the lifted photo under the pointer, wherever its slot is now.
   const place = useCallback(() => {
@@ -433,7 +442,7 @@ export default function Gallery({ initial, email }: { initial: Thing[]; email: s
     return (
       <>
         {u && <a className="lk" href={u} target="_blank" rel="noopener noreferrer">Visit store ↗</a>}
-        <button className="lk" onClick={() => setEditing({ thing: x })}>Edit</button>
+        {!shared && <button className="lk" onClick={() => setEditing({ thing: x })}>Edit</button>}
       </>
     );
   };
@@ -506,6 +515,7 @@ export default function Gallery({ initial, email }: { initial: Thing[]; email: s
     bought: "Things you buy will rest here. Mark something bought from its Edit menu.",
     gone: "Things you let go of will rest here. Most wants pass.",
   }[tab];
+  const emptyShared = { all: "Nothing here yet.", want: "Nothing here yet.", bought: "Nothing bought yet.", gone: "Nothing let go yet." }[tab];
   const bgLabel = BACKDROPS.find((x) => x.mode === bg)?.label || "Off";
 
   return (
@@ -559,14 +569,21 @@ export default function Gallery({ initial, email }: { initial: Thing[]; email: s
 
       <main className="band">
         <div key={view} ref={gridRef} className={`grid l-${view}${drag ? " moving" : ""}`}>
-          {shown.length ? shown.map(card) : <div className="empty">{q ? "No things match that search." : empty}</div>}
+          {shown.length ? shown.map(card) : <div className="empty">{q ? "No things match that search." : shared ? emptyShared : empty}</div>}
         </div>
-        <div className="where">
-          <span>{email}</span>
-          <form action="/auth/signout" method="post" style={{ display: "inline" }}>
-            <button className="lk" style={{ fontSize: 12 }}>Sign out</button>
-          </form>
-        </div>
+        {shared ? (
+          <div className="where">
+            <span>Shared from Transitory Things</span>
+            <a className="lk" style={{ fontSize: 12 }} href={signedIn ? "/" : "/login"}>{signedIn ? "Your things" : "Keep your own"}</a>
+          </div>
+        ) : (
+          <div className="where">
+            <span>{email}</span>
+            <form action="/auth/signout" method="post" style={{ display: "inline" }}>
+              <button className="lk" style={{ fontSize: 12 }}>Sign out</button>
+            </form>
+          </div>
+        )}
       </main>
 
       <nav className="dock band" aria-label="Main">
@@ -577,8 +594,13 @@ export default function Gallery({ initial, email }: { initial: Thing[]; email: s
               <sup>{counts[t] || ""}</sup>
             </button>
           ))}
-          <button className="soft" onClick={() => setEditing({})}>Add +</button>
-          <a className="soft" href="/save-button" title="Save things from any shop">Save button</a>
+          {!shared && (
+            <>
+              <button className="soft" onClick={() => setEditing({})}>Add +</button>
+              <button className="soft" onClick={() => setSharing(true)} title="Get a link to share your things">Share</button>
+              <a className="soft" href="/save-button" title="Save things from any shop">Save button</a>
+            </>
+          )}
           <button className="soft bgbtn" aria-pressed={bg !== "off"} onClick={(e) => cycleBg(e.shiftKey)} title={`Background: ${bgLabel}. Click for the next one.`} aria-label={`Background: ${bgLabel}. Next background`}>
             BG
           </button>
@@ -590,10 +612,12 @@ export default function Gallery({ initial, email }: { initial: Thing[]; email: s
             </button>
           ))}
         </div>
-        <a className="brand up" href="/" onClick={(e) => { if (focus) { e.preventDefault(); unfocus(); } }}>
+        <a className="brand up" href="/" onClick={(e) => { if (focus || shared) { e.preventDefault(); if (focus) unfocus(); else window.scrollTo({ top: 0, behavior: "smooth" }); } }}>
           Transitory <span>Things</span>
         </a>
       </nav>
+
+      {sharing && <ShareDialog sb={sb} board={board} onClose={() => setSharing(false)} say={say} />}
 
       {editing && (
         <AddDialog

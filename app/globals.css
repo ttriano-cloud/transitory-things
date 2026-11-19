@@ -224,3 +224,15 @@ html.bg-on .head, html.bg-on .note, html.bg-on .where, html.bg-on .cap, html.bg-
 .frame-tools .lk:hover, .frame-tools .lk:focus-visible { color: #f4f4f4; }
 @media (max-width: 700px) { .drop.framed { width: min(100%, 48vh); margin: 0 auto; } }
 .clip .drop.framed { width: min(100%, 44vh); margin: 0 auto; }
+
+/* Share dialog */
+dialog.share { width: min(520px, 94vw); }
+dialog.share .form { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 28px; }
+dialog.share h2 { margin: 0; }
+dialog.share .hint { margin: 0; }
+.sharelink { height: 46px; border: 1px solid #3a3a3a; background: #1b1b1b; padding: 0 12px; font-size: 15px; color: #f4f4f4; outline: 0; width: 100%; }
+.sharelink:focus { border-color: #f4f4f4; }
+dialog.share .check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+dialog.share .row { display: flex; gap: 10px; flex-wrap: wrap; }
+dialog.share .row.small { gap: 18px; font-size: 13px; }
+dialog.share .lk:disabled { opacity: .5; cursor: default; }
