@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { extractProduct, looksBlocked, nameFromUrl, type Extracted } from "@/lib/extract";
+import { extractProduct, looksBlocked, nameFromUrl, parsePrice, photoKey, type Extracted } from "@/lib/extract";
+import { tidyDetails, type Facts } from "@/lib/details";
 import { safeFetch } from "@/lib/safe-fetch";
 
 export const runtime = "nodejs";
@@ -40,10 +41,12 @@ export async function POST(req: Request) {
 
   let link = "";
   let html = "";
+  let facts: Facts = {};
   try {
     const body = await req.json();
     link = String(body.url || "").trim();
     html = typeof body.html === "string" ? body.html.slice(0, MAX_HTML) : "";
+    if (body.facts && typeof body.facts === "object") facts = body.facts;
     const u = new URL(link);
     if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error();
   } catch {
@@ -123,5 +126,21 @@ export async function POST(req: Request) {
     });
   }
   if (!result.name) result.name = nameFromUrl(link);
-  return NextResponse.json(result);
+  return NextResponse.json(withFacts(result, facts));
+}
+
+// Adds what the extension saw on the live page: the options picked, the photo being looked at,
+// and the price on screen when the page's own data had none.
+function withFacts(r: Extracted, f: Facts): Extracted {
+  const details = { ...(r.details || {}) };
+  const sel = f.selected && typeof f.selected === "object" ? f.selected : {};
+  for (const [k, v] of Object.entries(sel)) {
+    if (typeof v !== "string" || !v.trim()) continue;
+    if (/size|taille|größe/i.test(k)) details.size = v;
+    else if (/colou?r|shade|finish/i.test(k)) details.color = v;
+  }
+  let images = r.images;
+  if (typeof f.hero === "string" && /^https:\/\//i.test(f.hero)) images = [f.hero, ...images.filter((u) => photoKey(u) !== photoKey(f.hero!))].slice(0, 24);
+  const price = r.price ?? (typeof f.price === "string" ? parsePrice(f.price) : null);
+  return { ...r, price, images, details: tidyDetails(details) || undefined };
 }

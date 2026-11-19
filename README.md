@@ -21,7 +21,7 @@ You only do this once. Allow about 30 to 45 minutes.
 
 1. Open your `transitory-things` project at supabase.com.
 2. In the left sidebar, open **SQL Editor** > **New query**.
-3. Open the file `supabase/schema.sql` from this project, copy all of it, paste it in, and click **Run**. It should say "Success. No rows returned."
+3. Open the file `supabase/schema.sql` from this project, copy all of it, paste it in, and click **Run**. It should say "Success. No rows returned." (Running it again later is safe; do that whenever the file changes.)
 4. Go to **Project Settings** > **API** (some versions call it **Data API** or **API Keys**). Keep this tab open. You need two values from it in step 3:
    - **Project URL** (looks like `https://abcdefgh.supabase.co`)
    - **anon public** key (a long string starting with `eyJ`)
@@ -58,8 +58,11 @@ Now open your Vercel address, enter your email, click the link in the email, and
 ## Using it
 
 - **Add a thing:** paste a product link anywhere on the page. It reads the page and shows the photos it found. Choose one, check the name and price, and save. You can also paste or drop an image.
-- **One click** on a photo shows its details. **Double click** opens it by itself.
-- **Bottom bar:** All, Wanting, Bought, Let go, Add +, the water background (BG), and the three layouts (the dots).
+- **Hover** a photo to see its name, price, and brand underneath. **Click** opens it by itself.
+- **Arrange your grid:** drag a photo to a new spot (on a phone, press and hold first; with a keyboard, Alt + arrow keys). Order is set to **Your order**; choosing Newest or a price order and then dragging makes that the starting point of your order.
+- **Bought or let go:** open **Edit** and choose Wanting, Bought, or Let go.
+- **Bottom bar:** All, Wanting, Bought, Let go, Add +, the backgrounds (BG steps through Water, Fog, Contour, Dusk, Light leak, Bokeh, and off; Shift+click goes back), and the three layouts (the dots).
+- **Chrome extension:** see `/save-button` on the site. It reads the page in your own browser and also brings the brand, the color and size you picked, sale price, stock, and the photo you were looking at. Its code is in `extension/`; after changing it, rebuild `public/transitory-things-extension.zip` with `cd extension && zip -qr -X ../public/transitory-things-extension.zip . -x '.*'`.
 - **Boards:** type any name in the Board field. It shows up in the top row.
 
 ## Notes

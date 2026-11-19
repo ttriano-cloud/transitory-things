@@ -61,3 +61,14 @@ create policy "things photos: delete own" on storage.objects for delete to authe
 alter table public.things add column if not exists image_x real;
 alter table public.things add column if not exists image_y real;
 alter table public.things add column if not exists image_zoom real;
+
+-- Your own order on the grid (smaller comes first). New things go to the top.
+alter table public.things add column if not exists position double precision;
+update public.things set position = -extract(epoch from created_at) where position is null;
+alter table public.things alter column position set default (-extract(epoch from now()));
+create index if not exists things_user_position on public.things (user_id, position);
+
+-- More about each thing, read from the shop's page: brand, plus color, size, description,
+-- availability, the price before a sale, SKU, and category.
+alter table public.things add column if not exists brand text;
+alter table public.things add column if not exists details jsonb;

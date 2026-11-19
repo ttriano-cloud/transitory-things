@@ -4,11 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AddDialog, { type Draft } from "@/components/AddDialog";
+import type { Facts } from "@/lib/details";
+import { saveThing } from "@/lib/save";
 
 type State =
   | { s: "loading" }
   | { s: "signin" }
-  | { s: "ready"; url: string; html?: string; boards: string[] }
+  | { s: "ready"; url: string; html?: string; facts?: Facts; boards: string[] }
   | { s: "saved" }
   | { s: "nothing" };
 
@@ -27,14 +29,14 @@ export default function Clip() {
     // or by the bookmark (which hands it over from the shop's window).
     const fromExtension = params.get("ext") === "1";
 
-    const finish = (url: string, html?: string) => {
+    const finish = (url: string, html?: string, facts?: Facts) => {
       if (done) return;
       done = true;
       clearInterval(ping);
       clearTimeout(giveUp);
       removeEventListener("message", onMessage);
       if (!/^https?:\/\//i.test(url)) return setState({ s: "nothing" });
-      setState({ s: "ready", url, html, boards });
+      setState({ s: "ready", url, html, facts, boards });
     };
 
     const onMessage = (e: MessageEvent) => {
@@ -51,7 +53,7 @@ export default function Clip() {
           return;
         }
       }
-      finish(d.url, d.html);
+      finish(d.url, d.html, d.facts && typeof d.facts === "object" ? d.facts : undefined);
     };
 
     // Tell the shop's page we're ready, a few times in case it's slow.
@@ -86,8 +88,7 @@ export default function Clip() {
 
   async function save(d: Draft) {
     const { id: _id, ...fields } = d;
-    const { error } = await sb.from("things").insert(fields);
-    if (error) throw error;
+    await saveThing(sb, fields);
     setState({ s: "saved" });
     setTimeout(() => window.close(), 1200);
   }
@@ -95,7 +96,7 @@ export default function Clip() {
   if (state.s === "ready") {
     return (
       <main className="clip">
-        <AddDialog pre={{ url: state.url, html: state.html }} boards={state.boards} defaultBoard="" onClose={() => window.close()} onSave={save} />
+        <AddDialog pre={{ url: state.url, html: state.html, facts: state.facts }} boards={state.boards} defaultBoard="" onClose={() => window.close()} onSave={save} />
       </main>
     );
   }
