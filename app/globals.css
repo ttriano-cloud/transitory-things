@@ -236,3 +236,10 @@ dialog.share .check { display: flex; align-items: center; gap: 8px; font-size: 1
 dialog.share .row { display: flex; gap: 10px; flex-wrap: wrap; }
 dialog.share .row.small { gap: 18px; font-size: 13px; }
 dialog.share .lk:disabled { opacity: .5; cursor: default; }
+dialog.share { width: min(600px, 94vw); }
+dialog.share h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.sharepart { display: grid; gap: 10px; padding-top: 16px; border-top: 1px solid #2c2c2c; }
+.namerow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.namerow .sharelink { flex: 1 1 140px; width: auto; min-width: 0; }
+.namerow .suffix { font-size: 14px; color: #9a9a9a; }
+dialog.share .row.small .lk { font-size: 13px; }

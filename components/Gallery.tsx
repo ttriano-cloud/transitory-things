@@ -82,7 +82,7 @@ const VIEWS: { v: View; label: string; dots: number[] }[] = [
 ];
 
 // shared: someone else's things, seen through their share link. Look, don't touch.
-export default function Gallery({ initial, email = "", shared = false, initialBoard, signedIn = false }: { initial: Thing[]; email?: string; shared?: boolean; initialBoard?: string; signedIn?: boolean }) {
+export default function Gallery({ initial, email = "", shared = false, owner, home = "/", initialBoard }: { initial: Thing[]; email?: string; shared?: boolean; owner?: string; home?: string; initialBoard?: string }) {
   const sb = useMemo(() => createClient(), []);
   const [items, setItems] = useState<Thing[]>(initial);
   const [tab, setTab] = useState<Tab>("want");
@@ -573,8 +573,8 @@ export default function Gallery({ initial, email = "", shared = false, initialBo
         </div>
         {shared ? (
           <div className="where">
-            <span>Shared from Transitory Things</span>
-            <a className="lk" style={{ fontSize: 12 }} href={signedIn ? "/" : "/login"}>{signedIn ? "Your things" : "Keep your own"}</a>
+            <span>{owner ? `${owner}’s things` : "Shared things"}, kept on Transitory Things</span>
+            <a className="lk" style={{ fontSize: 12 }} href={home}>Keep your own</a>
           </div>
         ) : (
           <div className="where">
