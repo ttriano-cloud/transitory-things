@@ -66,10 +66,10 @@ select option { background: var(--bg); color: var(--ink); }
 .cap b { display: block; text-transform: uppercase; font-weight: 600; letter-spacing: .01em; }
 .cap span { color: var(--mute); }
 .l-lib { display: flex; flex-direction: column; align-items: center; gap: 14px; padding-block: 20px 120px; }
-.l-lib .plate { width: auto; height: auto; max-width: 90vw; display: block; background: none; }
-.l-lib .plate img { height: auto; width: auto; max-height: min(900px, calc(100vh - 140px)); max-width: 90vw; }
+.l-lib .plate { width: auto; height: auto; max-width: min(860px, 80vw); display: block; background: none; }
+.l-lib .plate img { height: auto; width: auto; max-height: min(600px, calc((100vh - 140px) * .66)); max-width: min(860px, 80vw); }
 .noimg { padding: 30% 10px; font-size: 13px; }
-.l-lib .noimg { padding: 0 40px; height: 340px; display: grid; place-items: center; background: var(--plate); }
+.l-lib .noimg { padding: 0 40px; height: 240px; display: grid; place-items: center; background: var(--plate); }
 .empty { grid-column: 1 / -1; text-align: center; padding: 80px 0; color: var(--mute); }
 
 @keyframes fade { from { opacity: 0; } }
@@ -190,8 +190,8 @@ html.bg-on .head, html.bg-on .note, html.bg-on .where, html.bg-on .cap, html.bg-
   .brand { display: none; }
   .l-scatter { grid-template-columns: 1fr; padding-inline: 0; }
   .l-scatter .card { grid-column: 1 !important; width: var(--mw); margin-left: var(--ml); margin-top: 0 !important; }
-  .l-lib .plate img { max-height: min(900px, 70vh); }
-  .l-lib .noimg { height: 280px; }
+  .l-lib .plate img { max-height: min(600px, 50vh); }
+  .l-lib .noimg { height: 200px; }
   .form { grid-template-columns: 1fr; }
   .drop { aspect-ratio: 16 / 10; }
 }

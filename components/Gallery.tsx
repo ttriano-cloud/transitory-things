@@ -119,11 +119,10 @@ export default function Gallery({ initial, email = "", shared = false, community
   const [drag, setDrag] = useState<{ id: string; order: string[] } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Remembered per browser: layout, order, and background.
+  // Remembered per browser: order and background.
   useEffect(() => {
     try {
-      const v = localStorage.getItem("tt-view") as View | null;
-      if (v && ["grid", "scatter", "lib"].includes(v)) setViewState(v);
+      // Every visit opens on the grid; the chosen layout isn't remembered.
       // A shared board opens in its owner's order.
       const s = shared || community ? null : (localStorage.getItem("tt-sort") as Sort | null);
       if (s && SORTS.includes(s)) setSortState(s);
@@ -135,7 +134,6 @@ export default function Gallery({ initial, email = "", shared = false, community
   const setView = (v: View) => {
     was.current.clear();
     setViewState(v);
-    try { localStorage.setItem("tt-view", v); } catch {}
   };
   const setSort = (s: Sort) => {
     setSortState(s);
