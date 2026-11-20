@@ -641,8 +641,8 @@ export default function Gallery({ initial, email = "", shared = false, community
           </div>
         ) : shared ? (
           <div className="where">
-            <span>{owner ? `${owner}’s things` : "Shared things"}, kept on Transitory Things</span>
-            <a className="lk" style={{ fontSize: 12 }} href={home}>Keep your own</a>
+            <span>{owner ? `${owner}’s Transitory Things` : "Shared things, kept on Transitory Things"}</span>
+            <a className="lk" style={{ fontSize: 12 }} href={home}>Keep your own things</a>
           </div>
         ) : (
           <div className="where">
