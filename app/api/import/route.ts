@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { extractProduct, looksBlocked, nameFromUrl, parsePrice, photoKey, type Extracted } from "@/lib/extract";
+import { biggerPhoto, extractProduct, looksBlocked, nameFromUrl, parsePrice, photoKey, type Extracted } from "@/lib/extract";
 import { tidyDetails, type Facts } from "@/lib/details";
 import { safeFetch } from "@/lib/safe-fetch";
 
@@ -139,8 +139,16 @@ function withFacts(r: Extracted, f: Facts): Extracted {
     if (/size|taille|größe/i.test(k)) details.size = v;
     else if (/colou?r|shade|finish/i.test(k)) details.color = v;
   }
-  let images = r.images;
-  if (typeof f.hero === "string" && /^https:\/\//i.test(f.hero)) images = [f.hero, ...images.filter((u) => photoKey(u) !== photoKey(f.hero!))].slice(0, 24);
+  // The photo on screen first, then the page's full gallery, then whatever else the copy had.
+  const ok = (u: unknown): u is string => typeof u === "string" && u.length < 2000 && /^https:\/\//i.test(u);
+  const live = [f.hero, ...(Array.isArray(f.images) ? f.images.slice(0, 40) : [])].filter(ok).map(biggerPhoto);
+  const seen = new Set<string>();
+  const images = [...live, ...r.images].filter((u) => {
+    const k = photoKey(u);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  }).slice(0, 30);
   const price = r.price ?? (typeof f.price === "string" ? parsePrice(f.price) : null);
   return { ...r, price, images, details: tidyDetails(details) || undefined };
 }

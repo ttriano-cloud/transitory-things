@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Transitory Things",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Save the thing you're looking at to Transitory Things, with its name, price, photos, brand, color, size, and more.",
   "action": {
     "default_title": "Save to Transitory Things",

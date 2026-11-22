@@ -21,7 +21,8 @@ export type Thing = {
   note: string | null;
   image_url: string | null;
   image_path: string | null;
-  // How the photo is framed in the grid: focal point (0-100%) and zoom (1 = fit).
+  // How the photo is framed in the grid: focal point (0-100%) and zoom. Zoom 1 to 3 fills the
+  // tile and crops; a negative zoom (-0.5 to -1) fits the whole photo inside it at that size.
   image_x: number | null;
   image_y: number | null;
   image_zoom: number | null;
@@ -58,8 +59,11 @@ const hsh = (t: string, n: number) => {
   return (h >>> 0) / 4294967295;
 };
 // The grid crops photos to fit its tiles; this applies the framing chosen when adding.
-export const frameStyle = (x: { image_x?: number | null; image_y?: number | null; image_zoom?: number | null }) =>
-  ({ "--fx": `${x.image_x ?? 50}%`, "--fy": `${x.image_y ?? 50}%`, "--fz": x.image_zoom ?? 1 }) as React.CSSProperties;
+// Fit is stored as a negative zoom so it needs no new database column and shows on shared pages too.
+export const frameStyle = (x: { image_x?: number | null; image_y?: number | null; image_zoom?: number | null }) => {
+  const z = x.image_zoom ?? 1;
+  return ({ "--fx": `${x.image_x ?? 50}%`, "--fy": `${x.image_y ?? 50}%`, "--fz": Math.abs(z) || 1, "--of": z < 0 ? "contain" : "cover" }) as React.CSSProperties;
+};
 const meta = (x: Thing) => [money(x.price), x.brand, x.store, x.board].filter(Boolean).join(" · ");
 
 function CountUp({ value }: { value: number }) {

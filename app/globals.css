@@ -217,17 +217,20 @@ html.bg-on .head, html.bg-on .note, html.bg-on .where, html.bg-on .cap, html.bg-
 .clip .drop { aspect-ratio: 16 / 10; }
 
 /* photo framing: the grid crops photos to its tiles, centered and zoomed as chosen */
-.l-grid .plate img { object-position: var(--fx, 50%) var(--fy, 50%); transform: scale(calc(var(--fz, 1) * var(--hz, 1))); transform-origin: var(--fx, 50%) var(--fy, 50%); }
+.l-grid .plate img { object-fit: var(--of, cover); object-position: var(--fx, 50%) var(--fy, 50%); transform: scale(calc(var(--fz, 1) * var(--hz, 1))); transform-origin: var(--fx, 50%) var(--fy, 50%); }
 .l-lib .plate img { transform: scale(var(--hz, 1)); }
-.drop.framed { aspect-ratio: 4 / 5; cursor: grab; touch-action: none; padding: 0; border-style: solid; border-color: #3a3a3a; }
+.drop.framed { aspect-ratio: 4 / 5; cursor: grab; touch-action: none; padding: 0; border-style: solid; border-color: #3a3a3a; background: var(--plate); }
 .drop.framed:active { cursor: grabbing; }
 .drop.framed span { display: none; }
-.drop.framed img { object-fit: cover; object-position: var(--fx, 50%) var(--fy, 50%); transform: scale(var(--fz, 1)); transform-origin: var(--fx, 50%) var(--fy, 50%); user-select: none; -webkit-user-drag: none; pointer-events: none; }
+.drop.framed img { background: none; object-fit: var(--of, cover); object-position: var(--fx, 50%) var(--fy, 50%); transform: scale(var(--fz, 1)); transform-origin: var(--fx, 50%) var(--fy, 50%); user-select: none; -webkit-user-drag: none; pointer-events: none; }
 .frame-tools { display: flex; align-items: center; gap: 16px; margin-top: 10px; font-size: 13px; }
 .frame-tools .zoom { display: flex; align-items: center; gap: 8px; flex: 1; color: #aaa; }
 .frame-tools .zoom input { flex: 1; accent-color: #f4f4f4; }
 .frame-tools .lk { color: #aaa; }
 .frame-tools .lk:hover, .frame-tools .lk:focus-visible { color: #f4f4f4; }
+.frame-tools .mode { display: flex; gap: 10px; }
+.frame-tools .mode button { color: #777; }
+.frame-tools .mode button[aria-pressed="true"] { color: #f4f4f4; text-decoration: underline; text-underline-offset: 4px; }
 @media (max-width: 700px) { .drop.framed { width: min(100%, 48vh); margin: 0 auto; } }
 .clip .drop.framed { width: min(100%, 44vh); margin: 0 auto; }
 

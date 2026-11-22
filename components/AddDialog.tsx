@@ -74,10 +74,13 @@ export default function AddDialog({
   const [msg, setMsg] = useState("");
   const [over, setOver] = useState(false);
   const [blocked, setBlocked] = useState(false);
-  // Framing: where the photo is centered (0-100%) and how far it's zoomed in.
+  // Framing: where the photo sits (0-100%), whether it fills the tile (cropping) or fits whole
+  // inside it, and its size: 1 to 3 when filling, 0.5 to 1 when fitting. Fit is saved as a negative zoom.
   const [fx, setFx] = useState(thing?.image_x ?? 50);
   const [fy, setFy] = useState(thing?.image_y ?? 50);
-  const [fz, setFz] = useState(thing?.image_zoom ?? 1);
+  const [fit, setFit] = useState((thing?.image_zoom ?? 1) < 0);
+  const [fz, setFz] = useState(Math.abs(thing?.image_zoom ?? 1) || 1);
+  const ZOOM = fit ? { min: 0.5, max: 1, start: 0.9 } : { min: 1, max: 3, start: 1 };
   const drag = useRef<{ x: number; y: number; fx: number; fy: number; w: number; h: number; moved: boolean } | null>(null);
   const firstPreview = useRef<string | null>(null);
   const imported = useRef("");
@@ -152,7 +155,7 @@ export default function AddDialog({
         image_path = path;
       }
       const p = price.replace(/[^0-9.]/g, "");
-      const framed = image_url ? { image_x: Math.round(fx * 10) / 10, image_y: Math.round(fy * 10) / 10, image_zoom: Math.round(fz * 100) / 100 } : { image_x: null, image_y: null, image_zoom: null };
+      const framed = image_url ? { image_x: Math.round(fx * 10) / 10, image_y: Math.round(fy * 10) / 10, image_zoom: (fit ? -1 : 1) * Math.round(fz * 100) / 100 } : { image_x: null, image_y: null, image_zoom: null };
       await onSave({
         id: thing?.id,
         name: name.trim(),
@@ -196,8 +199,17 @@ export default function AddDialog({
     }
     setFx(50);
     setFy(50);
-    setFz(1);
+    setFz(ZOOM.start);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview]);
+
+  function chooseFit(f: boolean) {
+    if (f === fit) return;
+    setFit(f);
+    setFx(50);
+    setFy(50);
+    setFz(f ? 0.9 : 1);
+  }
 
   const clamp = (n: number) => Math.min(100, Math.max(0, n));
   function startDrag(e: React.PointerEvent<HTMLDivElement>) {
@@ -211,23 +223,31 @@ export default function AddDialog({
     if (!d) return;
     const dx = e.clientX - d.x, dy = e.clientY - d.y;
     if (Math.abs(dx) + Math.abs(dy) > 3) d.moved = true;
-    // Dragging the photo right shows more of its left side, like moving a print under a mat.
-    setFx(clamp(d.fx - (dx / d.w) * 100 / fz));
-    setFy(clamp(d.fy - (dy / d.h) * 100 / fz));
+    // Filling: dragging the photo right shows more of its left side, like moving a print under a mat.
+    // Fitting: the whole photo is in view, so it simply moves with the pointer.
+    if (fit) {
+      setFx(clamp(d.fx + (dx / d.w) * 150));
+      setFy(clamp(d.fy + (dy / d.h) * 150));
+    } else {
+      setFx(clamp(d.fx - (dx / d.w) * 100 / fz));
+      setFy(clamp(d.fy - (dy / d.h) * 100 / fz));
+    }
   }
   function endDrag() {
     drag.current = null;
   }
   function nudge(e: React.KeyboardEvent<HTMLDivElement>) {
-    const step = e.shiftKey ? 10 : 2;
+    // Arrows move the photo the way it looks like it moves: when filling, the crop slides the other way.
+    const step = (e.shiftKey ? 10 : 2) * (fit ? -1 : 1);
+    const bigger = () => setFz((v) => Math.min(ZOOM.max, v + 0.05));
     const k: Record<string, () => void> = {
       ArrowLeft: () => setFx((v) => clamp(v + step)),
       ArrowRight: () => setFx((v) => clamp(v - step)),
       ArrowUp: () => setFy((v) => clamp(v + step)),
       ArrowDown: () => setFy((v) => clamp(v - step)),
-      "+": () => setFz((v) => Math.min(3, v + 0.1)),
-      "=": () => setFz((v) => Math.min(3, v + 0.1)),
-      "-": () => setFz((v) => Math.max(1, v - 0.1)),
+      "+": bigger,
+      "=": bigger,
+      "-": () => setFz((v) => Math.max(ZOOM.min, v - 0.05)),
     };
     if (k[e.key]) {
       e.preventDefault();
@@ -244,7 +264,7 @@ export default function AddDialog({
             className={`drop${over ? " over" : ""}${preview ? " framed" : ""}`}
             tabIndex={0}
             role={preview ? "group" : "button"}
-            aria-label={preview ? "Photo framing. Drag to move the photo, or use the arrow keys. Plus and minus zoom." : "Choose a photo"}
+            aria-label={preview ? "Photo framing. Drag to move the photo, or use the arrow keys. Plus and minus change the size." : "Choose a photo"}
             onClick={() => !preview && fileRef.current?.click()}
             onKeyDown={(e) => {
               if (preview) return nudge(e);
@@ -268,15 +288,23 @@ export default function AddDialog({
             }}
           >
             <span>Paste a link to find photos, or drop, paste, or choose an image.</span>
-            {preview && <img src={preview} alt="" referrerPolicy="no-referrer" draggable={false} style={frameStyle({ image_x: fx, image_y: fy, image_zoom: fz })} />}
+            {preview && <img src={preview} alt="" referrerPolicy="no-referrer" draggable={false} style={frameStyle({ image_x: fx, image_y: fy, image_zoom: fit ? -fz : fz })} />}
           </div>
           {preview && (
             <div className="frame-tools">
+              <div className="mode" role="group" aria-label="Framing">
+                <button type="button" className="lk" aria-pressed={!fit} onClick={() => chooseFit(false)} title="Fill the tile, cropping the edges">
+                  Fill
+                </button>
+                <button type="button" className="lk" aria-pressed={fit} onClick={() => chooseFit(true)} title="Show the whole photo inside the tile">
+                  Fit
+                </button>
+              </div>
               <label className="zoom">
-                <span>Zoom</span>
-                <input type="range" min={1} max={3} step={0.01} value={fz} onChange={(e) => setFz(Number(e.target.value))} />
+                <span>{fit ? "Size" : "Zoom"}</span>
+                <input type="range" min={ZOOM.min} max={ZOOM.max} step={0.01} value={fz} onChange={(e) => setFz(Number(e.target.value))} />
               </label>
-              <button type="button" className="lk" onClick={() => { setFx(50); setFy(50); setFz(1); }}>
+              <button type="button" className="lk" onClick={() => { setFx(50); setFy(50); setFz(ZOOM.start); }}>
                 Center
               </button>
               <button type="button" className="lk" onClick={() => fileRef.current?.click()}>

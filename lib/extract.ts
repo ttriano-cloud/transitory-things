@@ -39,11 +39,43 @@ function largestFromSrcset(srcset: string | undefined): string | undefined {
   return best?.url;
 }
 
+// Amazon photo links carry their size in the name (B0X.._AC_US40_.jpg is a 40px thumbnail).
+// Swapping that part for a large size gives the same photo, big enough for the grid.
+const AMAZON_IMG = /(^|\.)(media-amazon\.com|images-amazon\.com|ssl-images-amazon\.com)$/i;
+export function biggerPhoto(u: string): string {
+  try {
+    const url = new URL(u);
+    if (!AMAZON_IMG.test(url.hostname)) return u;
+    url.pathname = url.pathname.replace(/\._[^/]*_\.(jpe?g|png|webp)$/i, "._AC_SL1500_.$1");
+    return url.toString();
+  } catch {
+    return u;
+  }
+}
+
+// The biggest photo named in Amazon-style attributes on an <img>: data-old-hires, or the
+// largest entry of data-a-dynamic-image ({"url": [width, height], ...}).
+export function largestFromDynamic(json: string | undefined): string | undefined {
+  if (!json) return undefined;
+  try {
+    const j = JSON.parse(json) as Record<string, [number, number]>;
+    let best: { url: string; w: number } | undefined;
+    for (const [url, size] of Object.entries(j)) {
+      const w = Array.isArray(size) ? Number(size[0]) || 0 : 0;
+      if (!best || w > best.w) best = { url, w };
+    }
+    return best?.url;
+  } catch {
+    return undefined;
+  }
+}
+
 // Two links to the same photo at different sizes should only show once.
 export function photoKey(u: string): string {
   try {
     const url = new URL(u);
     let p = url.pathname
+      .replace(/\._[^/]*_(?=\.(jpe?g|png|webp)$)/i, "")
       .replace(/_(\d+x\d*|\d*x\d+|small|medium|large|grande|compact|master)(?=\.)/gi, "")
       .replace(/\/(w|h|c|q)_[^/]+/g, "");
     return url.hostname + p;
@@ -217,12 +249,22 @@ export function extractProduct(html: string, pageUrl: string): Extracted {
   const found: string[] = [];
   const add = (src: string | undefined | null) => {
     const u = abs(src, pageUrl);
-    if (u) found.push(u);
+    if (u) found.push(biggerPhoto(u));
   };
   for (const img of asArray(p.image)) add(typeof img === "string" ? img : img?.url || img?.contentUrl);
   $('meta[property="og:image"], meta[property="og:image:secure_url"], meta[property="og:image:url"]').each((_, el) => add($(el).attr("content")));
   add(meta('meta[name="twitter:image"]') || meta('meta[name="twitter:image:src"]'));
   add($('link[rel="image_src"]').attr("href"));
+  // Amazon keeps the full-size gallery on the main photo and in its page data.
+  $("img[data-old-hires], img[data-a-dynamic-image]").each((_, el) => {
+    const e = $(el);
+    add(e.attr("data-old-hires") || largestFromDynamic(e.attr("data-a-dynamic-image")));
+  });
+  $("script:not([src])").each((_, el) => {
+    const t = $(el).text();
+    if (t.length > 2_000_000 || !t.includes("hiRes")) return;
+    for (const m of t.matchAll(/"hiRes"\s*:\s*"(https:[^"]+)"/g)) add(m[1].replace(/\\\//g, "/"));
+  });
   $("img, source").each((_, el) => {
     const e = $(el);
     const w = parseInt(e.attr("width") || "0", 10);
@@ -246,7 +288,7 @@ export function extractProduct(html: string, pageUrl: string): Extracted {
     if (seen.has(k)) continue;
     seen.add(k);
     images.push(u);
-    if (images.length >= 24) break;
+    if (images.length >= 30) break;
   }
 
   const { brand, details } = extraDetails($, p, products, price);

@@ -73,13 +73,14 @@ Then run the latest `supabase/schema.sql` in Supabase (step 2.3) if you haven't 
 ## Using it
 
 - **Add a thing:** paste a product link anywhere on the page. It reads the page and shows the photos it found. Choose one, check the name and price, and save. You can also paste or drop an image.
+- **Framing a photo:** in Add or Edit, choose **Fill** (the photo fills the tile; drag to choose what's cropped, zoom to tighten) or **Fit** (the whole photo shows inside the tile; drag to place it, Size to add room around it). Fit is saved as a negative zoom, so it needs no database change.
 - **Hover** a photo to see its name, price, and brand underneath. **Click** opens it by itself.
 - **Arrange your grid:** drag a photo to a new spot (on a phone, press and hold first; with a keyboard, Alt + arrow keys). Order is set to **Your order**; choosing Newest or a price order and then dragging makes that the starting point of your order.
 - **Bought or let go:** open **Edit** and choose Wanting, Bought, or Let go.
 - **Bottom bar:** All, Wanting, Bought, Let go, Add +, Share, with the count and total in small type underneath, and the three layouts (the dots).
 - **Settings** (the dot mark): Light, Dark, or Auto mode; the moving background (Water, Fog, Contour, Dusk, Light leak, Bokeh, or off); the title at the top of your page; and the save button.
 - **Community** (the dot mark): everything people keep on their public name pages, newest first. Things kept only privately never show there. **Save +** copies a thing to your own list, and its page says who first found it and whose list it's on.
-- **Chrome extension:** see `/save-button` on the site. It reads the page in your own browser and also brings the brand, the color and size you picked, sale price, stock, and the photo you were looking at. Its code is in `extension/`; after changing it, rebuild `public/transitory-things-extension.zip` with `cd extension && zip -qr -X ../public/transitory-things-extension.zip . -x '.*'`.
+- **Chrome extension:** see `/save-button` on the site. It reads the page in your own browser, including the full-size photo gallery that Amazon and some other shops hide in page data, and also brings the brand, the color and size you picked, sale price, stock, and the photo you were looking at. Its code is in `extension/`; after changing it, rebuild `public/transitory-things-extension.zip` with `cd extension && zip -qr -X ../public/transitory-things-extension.zip . -x '.*'`.
 - **Boards:** type any name in the Board field. It shows up in the top row.
 - **Share:** click **Share** in the bottom bar. Two ways, both look-only, and your notes stay private:
   - **Your page:** claim a name to get `yourname.transitorythings.com`. Anyone who knows or guesses the name can see it. Change the name or turn it off any time.

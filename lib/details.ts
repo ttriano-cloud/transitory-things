@@ -17,6 +17,8 @@ export type Facts = {
   selected?: Record<string, string>;
   hero?: string;
   price?: string;
+  // Full-size gallery photos read from the live page (scripts are stripped from the copy).
+  images?: string[];
 };
 
 const clean = (s: unknown, max = 300) => (typeof s === "string" ? s.replace(/\s+/g, " ").trim().slice(0, max) : "");

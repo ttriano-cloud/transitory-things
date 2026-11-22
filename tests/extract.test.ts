@@ -127,3 +127,17 @@ test("finds a crossed-out price and size menus on the page", () => {
   assert.equal(r.details?.original_price, 160);
   assert.deepEqual(r.details?.sizes, ["S", "M", "L"]);
 });
+
+test("finds Amazon's full-size gallery, not its tiny thumbnails", () => {
+  const html = `<html><head><title>Amazon.com: Brass Desk Lamp</title></head><body>
+<span id="productTitle">Brass Desk Lamp</span>
+<img id="landingImage" src="https://m.media-amazon.com/images/I/61main._AC_SX466_.jpg" width="466" height="466"
+  data-old-hires="https://m.media-amazon.com/images/I/61main._AC_SL1500_.jpg"
+  data-a-dynamic-image='{"https://m.media-amazon.com/images/I/61main._AC_SX466_.jpg":[466,466],"https://m.media-amazon.com/images/I/61main._AC_SX679_.jpg":[679,679]}'>
+<script>P.when('A').register("ImageBlockATF", function(A){ var data = {'colorImages': { 'initial': [{"hiRes":"https:\\/\\/m.media-amazon.com\\/images\\/I\\/61main._AC_SL1500_.jpg"},{"hiRes":"https://m.media-amazon.com/images/I/71side._AC_SL1500_.jpg"}]}}; });</script>
+</body></html>`;
+  const r = extractProduct(html, "https://www.amazon.com/dp/B000TEST");
+  assert.equal(r.images[0], "https://m.media-amazon.com/images/I/61main._AC_SL1500_.jpg");
+  assert.ok(r.images.includes("https://m.media-amazon.com/images/I/71side._AC_SL1500_.jpg"), "gallery photos from page data");
+  assert.equal(r.images.filter((u) => u.includes("61main")).length, 1, "one photo at many sizes shows once");
+});

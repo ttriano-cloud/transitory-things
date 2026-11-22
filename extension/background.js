@@ -51,6 +51,8 @@ function copyPage() {
       });
     } catch {}
 
+    facts.images = galleryPhotos();
+
     // The photo taking up the most of the screen.
     let best = 0;
     for (const im of document.images) {
@@ -75,6 +77,30 @@ function copyPage() {
       }
     }
     return facts;
+  }
+
+  // Full-size gallery photos that only the live page knows about. Amazon keeps them in
+  // script data ("hiRes") and on the main photo (data-old-hires, data-a-dynamic-image).
+  function galleryPhotos() {
+    const out = [];
+    const add = (u) => {
+      if (typeof u === "string" && /^https:/.test(u) && u.length < 2000 && !out.includes(u) && out.length < 40) out.push(u);
+    };
+    try {
+      for (const im of document.querySelectorAll("img[data-old-hires], img[data-a-dynamic-image]")) {
+        add(im.getAttribute("data-old-hires"));
+        try {
+          const j = JSON.parse(im.getAttribute("data-a-dynamic-image") || "{}");
+          add(Object.keys(j).sort((a, b) => (j[b][0] || 0) - (j[a][0] || 0))[0]);
+        } catch {}
+      }
+      for (const sc of document.scripts) {
+        const t = sc.src ? "" : sc.textContent || "";
+        if (t.length > 2e6 || !t.includes("hiRes")) continue;
+        for (const m of t.matchAll(/"hiRes"\s*:\s*"(https:[^"]+)"/g)) add(m[1].replace(/\\\//g, "/"));
+      }
+    } catch {}
+    return out;
   }
 }
 
